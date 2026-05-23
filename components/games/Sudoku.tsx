@@ -1,0 +1,323 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { RotateCcw, Eraser, StickyNote, Flag, LayoutGrid, Clock, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface SudokuProps {
+  gameState: any;
+  playerName: string;
+  playerId: string; 
+  stompClient: any;
+  roomId: string;
+}
+
+export default function Sudoku({ gameState, playerName, playerId, stompClient, roomId }: SudokuProps) {
+  const [localBoard, setLocalBoard] = useState<number[][]>([]);
+  const [notesMode, setNotesMode] = useState(false);
+  const [notes, setNotes] = useState<Record<string, number[]>>({});
+  const [focusedCell, setFocusedCell] = useState<string | null>("0-0");
+  const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false);
+  
+  // Ref to track if the change came from the server or the user
+  const isInternalChange = useRef(false);
+
+  const scoreBoard = gameState?.gameData?.scoreBoard || {};
+  const myStats = scoreBoard[playerId]; 
+  const isMeFinished = myStats?.status === "COMPLETED" || myStats?.status === "GIVEN_UP";
+
+  const formatTimeResult = (ms: number) => {
+    if (!ms || ms < 0) return "0 sec";
+    const totalSeconds = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return mins === 0 ? `${secs} sec` : `${mins}m ${secs}s`;
+  };
+
+  // Sync with server board when it changes (Initial load or verification recovery)
+  useEffect(() => {
+    const serverBoard = gameState?.gameData?.playerBoards?.[playerId];
+    if (serverBoard) {
+      isInternalChange.current = true;
+      setLocalBoard(serverBoard);
+    } else if (gameState?.gameData?.initialBoard) {
+      isInternalChange.current = true;
+      setLocalBoard(gameState.gameData.initialBoard);
+    }
+  }, [gameState, playerId]);
+
+  const sendAction = (payload: any) => {
+    if (stompClient?.connected) {
+      stompClient.publish({
+        destination: `/app/game/${roomId}/move`,
+        body: JSON.stringify({ playerName: playerId, ...payload }),
+      });
+    }
+  };
+
+  const handleCellChange = (row: number, col: number, value: string) => {
+    if (isMeFinished || gameState?.gameData?.initialBoard?.[row]?.[col] !== 0) return;
+    
+    const val = value.slice(-1);
+    const num = parseInt(val);
+    const key = `${row}-${col}`;
+
+    if (notesMode && value !== "") {
+      if (isNaN(num) || num < 1 || num > 9) return;
+      const current = notes[key] || [];
+      const next = current.includes(num) ? current.filter(n => n !== num) : [...current, num].sort();
+      setNotes({ ...notes, [key]: next });
+    } else {
+      const updated = localBoard.map((rArr, rIdx) => 
+        rArr.map((cVal, cIdx) => (rIdx === row && cIdx === col ? (value === "" ? 0 : num) : cVal))
+      );
+      
+      if (value !== "") {
+        const updatedNotes = { ...notes };
+        delete updatedNotes[key];
+        setNotes(updatedNotes);
+      }
+
+      setLocalBoard(updated);
+      isInternalChange.current = false; 
+      
+      sendAction({ type: "SUDOKU_SYNC", board: updated });
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isMeFinished || !focusedCell || showGiveUpConfirm) return;
+
+      const [r, c] = focusedCell.split("-").map(Number);
+      let nextR = r;
+      let nextC = c;
+
+      if (e.key === "ArrowUp") nextR = r > 0 ? r - 1 : 8;
+      else if (e.key === "ArrowDown") nextR = r < 8 ? r + 1 : 0;
+      else if (e.key === "ArrowLeft") nextC = c > 0 ? c - 1 : 8;
+      else if (e.key === "ArrowRight") nextC = c < 8 ? c + 1 : 0;
+      else if (e.key === "Backspace" || e.key === "Delete") {
+        handleCellChange(r, c, "");
+      } else if (/^[1-9]$/.test(e.key)) {
+        handleCellChange(r, c, e.key);
+      } else {
+        return;
+      }
+
+      if (e.key.startsWith("Arrow")) e.preventDefault();
+      setFocusedCell(`${nextR}-${nextC}`);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusedCell, isMeFinished, notesMode, localBoard, notes, showGiveUpConfirm]);
+
+  const confirmGiveUp = () => {
+    setShowGiveUpConfirm(false);
+    sendAction({ type: "SUDOKU_GIVE_UP" });
+  };
+
+  if (!gameState?.gameData || localBoard.length === 0) return null;
+
+  return (
+    <div className="flex flex-col items-center w-full min-h-screen bg-black text-white p-4 font-sans">
+      
+      {/* HEADER */}
+      <div className="flex justify-between items-center w-full max-w-[450px] mb-8 mt-4 px-1">
+        <div className="flex flex-col gap-1 bg-zinc-900/50 border border-zinc-800 p-3 px-4 rounded-2xl shadow-xl">
+          <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+            <LayoutGrid size={12} className="text-cyan-500" /> Progress
+          </span>
+          <span className="text-2xl font-mono font-black text-white leading-none">
+            {Math.round(myStats?.progress || 0)}%
+          </span>
+        </div>
+
+        {!isMeFinished && (
+          <button 
+            onClick={() => setShowGiveUpConfirm(true)} 
+            className="flex items-center gap-2 px-5 py-3 bg-red-950/20 border border-red-900/30 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest active:scale-95"
+          >
+            <Flag size={14} /> Give Up
+          </button>
+        )}
+      </div>
+
+      {/* SUDOKU GRID */}
+      <div className={`grid grid-cols-9 border-[3px] border-zinc-700 bg-zinc-900 shadow-2xl transition-all duration-500 ${isMeFinished ? 'opacity-20 blur-xl pointer-events-none' : ''}`}>
+        {localBoard.map((row, rIdx) => row.map((cell, cIdx) => {
+          const isInitial = gameState.gameData.initialBoard[rIdx][cIdx] !== 0;
+          const key = `${rIdx}-${cIdx}`;
+          const isFocused = focusedCell === key;
+          
+          const bR = (cIdx + 1) % 3 === 0 && cIdx !== 8 ? "border-r-[3px] border-zinc-700" : "border-r border-zinc-800/50";
+          const bB = (rIdx + 1) % 3 === 0 && rIdx !== 8 ? "border-b-[3px] border-zinc-700" : "border-b border-zinc-800/50";
+
+          return (
+            <div 
+              key={key} 
+              onClick={() => setFocusedCell(key)}
+              className={`relative w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center cursor-pointer transition-all duration-75
+                ${bR} ${bB} 
+                ${isFocused ? (isInitial ? "bg-zinc-700" : "bg-cyan-500 text-black") : (isInitial ? "bg-zinc-800/50" : "bg-black hover:bg-zinc-900")}
+              `}
+            >
+              <span className={`text-xl font-black select-none ${isInitial ? "text-zinc-500" : isFocused ? "text-black" : "text-white"}`}>
+                {cell === 0 ? "" : cell}
+              </span>
+
+              {cell === 0 && (
+                <div className="absolute inset-0 grid grid-cols-3 p-1 pointer-events-none items-center justify-items-center">
+                  {[1,2,3,4,5,6,7,8,9].map(n => (
+                    <span 
+                      key={n} 
+                      className={`text-[9px] leading-none tracking-tight transition-colors duration-75
+                        ${notes[key]?.includes(n) 
+                          ? (isFocused ? "text-white font-black drop-shadow-md" : "text-amber-500/80 font-bold") 
+                          : "text-transparent"
+                        }`}
+                    >
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }))}
+      </div>
+
+      {/* CONTROLS */}
+      <div className="grid grid-cols-3 gap-3 mt-10 w-full max-w-[450px]">
+        <button 
+          onClick={() => {
+             const [r, c] = (focusedCell || "0-0").split("-").map(Number);
+             if (notesMode) {
+               const updatedNotes = { ...notes };
+               delete updatedNotes[`${r}-${c}`];
+               setNotes(updatedNotes);
+             } else {
+               handleCellChange(r, c, "");
+             }
+          }} 
+          className="flex flex-col items-center gap-2 py-5 rounded-2xl border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:bg-zinc-800 active:scale-95 transition-all"
+        >
+          <Eraser size={20} />
+          <span className="text-[9px] font-black uppercase tracking-widest">Erase</span>
+        </button>
+
+        <button 
+          onClick={() => setNotesMode(!notesMode)} 
+          className={`flex flex-col items-center gap-2 py-5 rounded-2xl border transition-all active:scale-95 ${notesMode ? "bg-cyan-500 border-cyan-400 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]" : "bg-zinc-900/50 border-zinc-800 text-zinc-400"}`}
+        >
+          <StickyNote size={20} />
+          <span className="text-[9px] font-black uppercase tracking-widest">Notes Mode</span>
+        </button>
+
+        <button 
+          onClick={() => {
+            if(confirm("Reset your entire board?")) {
+              setNotes({});
+              sendAction({ type: "SUDOKU_RESET" });
+            }
+          }} 
+          className="flex flex-col items-center gap-2 py-5 rounded-2xl border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:bg-zinc-800 active:scale-95 transition-all"
+        >
+          <RotateCcw size={20} />
+          <span className="text-[9px] font-black uppercase tracking-widest">Reset</span>
+        </button>
+      </div>
+
+      {/* CUSTOM DESIGN-SYNCED GIVE UP CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {showGiveUpConfirm && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-zinc-950 border border-red-500/20 p-6 rounded-[32px] text-center max-w-sm w-full shadow-2xl"
+            >
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-xl font-black uppercase italic text-white tracking-tight mb-2">Abort Assignment?</h3>
+              <p className="text-zinc-500 text-xs uppercase font-mono tracking-tight leading-relaxed mb-6">
+                Giving up logs your final progress at {Math.round(myStats?.progress || 0)}%. This action cannot be reversed.
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowGiveUpConfirm(false)}
+                  className="flex-1 py-3.5 bg-zinc-900 border border-zinc-800 text-white font-black rounded-xl uppercase text-[10px] tracking-widest hover:bg-zinc-800 transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmGiveUp}
+                  className="flex-1 py-3.5 bg-red-600 text-white font-black rounded-xl uppercase text-[10px] tracking-widest hover:bg-red-500 transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)] active:scale-95"
+                >
+                  Give Up
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* FINAL SCOREBOARD MODAL */}
+      {isMeFinished && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
+          <div className="bg-zinc-950 border border-white/10 p-8 rounded-[40px] text-center max-w-md w-full shadow-2xl">
+            <h2 className="text-3xl font-black mb-6 uppercase italic text-white tracking-tighter">Protocol Ended</h2>
+            <div className="space-y-3 mb-8">
+              {Object.values(scoreBoard)
+                .sort((a: any, b: any) => b.progress - a.progress)
+                .map((p: any) => {
+                  const isCompleted = p.status === 'COMPLETED';
+                  const isGivenUp = p.status === 'GIVEN_UP';
+                  
+                  // Style configurations based strictly on completion or surrender states
+                  let cardStyles = "bg-white/5 border-white/5 text-zinc-400";
+                  if (isCompleted) {
+                    cardStyles = "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)]";
+                  } else if (isGivenUp) {
+                    cardStyles = "bg-amber-500/10 border-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.05)]";
+                  }
+
+                  return (
+                    <div 
+                      key={p.playerId || p.playerName} 
+                      className={`flex justify-between items-center p-5 rounded-2xl border transition-all duration-300 ${cardStyles}`}
+                    >
+                      <div className="text-left">
+                         <span className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-white">
+                           {p.playerName}
+                           {p.player?.host && (
+                             <span className="px-1.5 py-0.5 text-[8px] bg-cyan-500/20 text-cyan-400 rounded border border-cyan-500/30 font-black normal-case">
+                               Host
+                             </span>
+                           )}
+                         </span>
+                         <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 mt-1">
+                           <Clock size={10} /> {formatTimeResult(p.totalTimeMillis)}
+                         </span>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-2xl font-mono font-black ${isCompleted ? 'text-emerald-400' : isGivenUp ? 'text-amber-500' : 'text-zinc-400'}`}>
+                          {Math.round(p.progress)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            <button onClick={() => window.location.href = '/'} className="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-[10px] tracking-widest hover:bg-cyan-500 transition-all">
+              Exit to Lobby
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
