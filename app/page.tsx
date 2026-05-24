@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // Imported Next.js fast Link component
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { Info, X, Users, Trophy, Target } from "lucide-react";
@@ -9,7 +10,7 @@ import { Info, X, Users, Trophy, Target } from "lucide-react";
 const GAMES = [
   { 
     id: "wordle", 
-    name: "Wordle", 
+    name: "Wordle Rush", 
     icon: "⌨️", 
     detail: "A high-stakes multiplayer race to decode the secret 5-letter word.", 
     active: true,
@@ -67,7 +68,6 @@ export default function HomePage() {
       return;
     }
 
-    // Still save the display name for UI/UX
     Cookies.set("playerName", name.trim(), { expires: 1, path: "/" });
     setIsLoading(true);
 
@@ -84,7 +84,6 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        // CRITICAL: Tells the browser to send and receive cookies (playerId)
         credentials: "include" 
       });
 
@@ -320,8 +319,8 @@ export default function HomePage() {
               <div>
                 <p className="mb-4 text-white">The Ultimate Multiplayer Arcade</p>
                 <p>
-                  FunFriday is the premier platform for <span className="text-cyan-500">multiplayer word games</span>, real-time trivia, and social deduction. 
-                  Experience the viral sensation of <span className="text-white">Multiplayer Wordle</span>, where you compete 
+                  FunFriday is the premier platform for <span className="text-cyan-500">multiplayer arcade games</span>, real-time trivia, and social deduction. 
+                  Experience the viral sensation of <span className="text-white">Multiplayer Wordle Rush</span>, where you compete 
                   against friends to decode the secret 5-letter word in a high-speed sprint. Our platform is 
                   engineered for low-latency gaming, ensuring every guess and every point counts in your Friday night sessions.
                 </p>
@@ -358,27 +357,42 @@ export default function HomePage() {
             <div className="space-y-4">
               <h5 className="text-white text-[11px] font-black uppercase tracking-[0.2em]">About Us</h5>
               <ul className="space-y-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Our Mission</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">The Protocol</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Developer Blog</a></li>
+                <li>
+                  {/* Client side page-to-page Link overlay wrapper */}
+                  <Link 
+                    href="/mission" 
+                    className="hover:text-cyan-400 transition-colors uppercase font-bold text-[10px] tracking-widest text-left"
+                  >
+                    Our Mission
+                  </Link>
+                </li>
               </ul>
             </div>
 
-            <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+            {/* UPGRADED CLEAN COFFEE REDIRECTION LINK */}
+            <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-cyan-500/30 transition-all duration-300">
               <h5 className="text-cyan-400 text-[11px] font-black uppercase tracking-[0.2em]">Support Us</h5>
               <p className="text-zinc-500 text-[9px] uppercase tracking-widest font-bold leading-normal mb-2">
                 Help us keep the servers running and the games free.
               </p>
               <ul className="space-y-2 text-white text-[10px] font-black uppercase tracking-widest">
-                <li><a href="#" className="flex items-center gap-2 group hover:text-cyan-400 transition-colors">Buy us a coffee →</a></li>
-                <li><a href="#" className="flex items-center gap-2 group hover:text-cyan-400 transition-colors">Premium Access →</a></li>
+                <li>
+                  <a 
+                    href="https://www.paypal.com/ncp/payment/U7SZJUURVL4Q6" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 group hover:text-cyan-400 transition-colors"
+                  >
+                    Buy us a coffee <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  </a>
+                </li>
               </ul>
             </div>
 
             <div className="space-y-4">
               <h5 className="text-white text-[11px] font-black uppercase tracking-[0.2em]">Contact</h5>
               <ul className="space-y-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
-                <li><a href="mailto:support@funfriday.lab" className="hover:text-cyan-400 transition-colors text-cyan-500">Email HQ</a></li>
+                <li><a href="mailto:shriaman93@gmail.com" className="hover:text-cyan-400 transition-colors text-cyan-500">Email HQ</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Twitter / X</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Discord</a></li>
               </ul>
