@@ -11,7 +11,10 @@ import Sudoku from "@/components/games/Sudoku";
 import Leaderboard from "@/components/Leaderboard";
 import WaitingRoom from "@/components/WaitingRoom";
 
-const SOCKET_URL = "http://localhost:8080/ws";
+// DYNAMIC PRODUCTION ROUTING: Falls back to the relative path handled by Nginx proxy when live
+const SOCKET_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
+  ? `${window.location.protocol}//${window.location.host}/ws`
+  : "http://localhost:8080/ws";
 
 export default function RoomPage() {
   const { roomId } = useParams();
@@ -56,7 +59,15 @@ export default function RoomPage() {
 
     client.activate();
     stompClientRef.current = client;
-    return () => client.deactivate();
+
+    // --- APPROACH 1 FIX ---
+    // Returns a synchronous cleanup function. Catches the promise internally 
+    // to strictly satisfy React's void/Destructor requirements.
+    return () => {
+      client.deactivate().catch((err) => {
+        console.error("Error encountered while deactivating STOMP client: ", err);
+      });
+    };
   }, [roomId, playerName, playerId]);
 
   const handleStartGame = () => {
