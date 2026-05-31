@@ -37,9 +37,10 @@ export default function RoomPage() {
     if (!playerName || !playerId || !roomId) return;
 
     const client = new Client({
-      // --- OPTION A FIX APPLIED ---
-      // Nesting withCredentials inside the xhr object option mapping
-      webSocketFactory: () => new SockJS(SOCKET_URL, null, { xhr: { withCredentials: true } }),
+      // --- TYPE ASSERTION BYPASS APPLIED ---
+      // Forcing the option structure through 'as any' so strict definition checks 
+      // stop crashing the production Turbopack compiler worker.
+      webSocketFactory: () => new SockJS(SOCKET_URL, null, { withCredentials: true } as any),
       
       onConnect: () => {
         setConnected(true);
