@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link"; // Imported Next.js fast Link component
+import Link from "next/link"; 
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { Info, X, Users, Trophy, Target } from "lucide-react";
@@ -72,9 +72,13 @@ export default function HomePage() {
     setIsLoading(true);
 
     try {
+      // DYNAMIC ENDPOINT RESOLUTION: Resolves to relative path in production, bypassing absolute localhost errors
+      const isProduction = typeof window !== "undefined" && window.location.hostname !== "localhost";
+      const baseApiUrl = isProduction ? "/api" : "http://localhost:8080/api";
+
       const endpoint = type === "START" 
-        ? "http://localhost:8080/api/rooms/create" 
-        : `http://localhost:8080/api/rooms/join/${roomInput.trim().toUpperCase()}`;
+        ? `${baseApiUrl}/rooms/create` 
+        : `${baseApiUrl}/rooms/join/${roomInput.trim().toUpperCase()}`;
 
       const payload = type === "START" 
         ? { type: selectedGame.toUpperCase(), host: name.trim() }
@@ -96,7 +100,7 @@ export default function HomePage() {
       router.push(`/room/${roomData.roomId}`);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Server Error: Ensure backend is running with CORS enabled.");
+      alert(err.message || "Server Error: Ensure backend daemon is operational.");
       setIsLoading(false);
     }
   };
@@ -150,10 +154,8 @@ export default function HomePage() {
                   <div className="absolute -inset-px bg-gradient-to-b from-white/5 to-transparent rounded-[3rem] pointer-events-none" />
                 </div>
 
-                {/* BACK OF CARD - ACCESSIBLE ON HOVER */}
+                {/* BACK OF CARD */}
                 <div className="absolute inset-0 backface-hidden bg-cyan-500 rounded-[3rem] flex flex-col items-center justify-center p-10 text-black rotate-y-180 shadow-[0_0_40px_rgba(6,182,212,0.3)]">
-                  
-                  {/* INFO BUTTON ON BACK */}
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -312,7 +314,6 @@ export default function HomePage() {
       {/* FOOTER */}
       <footer className="py-16 border-t border-white/5 bg-black/80 backdrop-blur-md px-6">
         <div className="max-w-6xl mx-auto">
-          {/* SEO DATA SECTION */}
           <div className="mb-16 border-b border-white/5 pb-12">
             <h2 className="text-zinc-400 font-mono text-[11px] uppercase tracking-[0.3em] mb-6">Search Engine Protocol // Indexing Data</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-zinc-500 text-[10px] uppercase tracking-widest leading-relaxed font-bold">
@@ -358,7 +359,6 @@ export default function HomePage() {
               <h5 className="text-white text-[11px] font-black uppercase tracking-[0.2em]">About Us</h5>
               <ul className="space-y-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
                 <li>
-                  {/* Client side page-to-page Link overlay wrapper */}
                   <Link 
                     href="/mission" 
                     className="hover:text-cyan-400 transition-colors uppercase font-bold text-[10px] tracking-widest text-left"
@@ -369,7 +369,6 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* UPGRADED CLEAN COFFEE REDIRECTION LINK */}
             <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-cyan-500/30 transition-all duration-300">
               <h5 className="text-cyan-400 text-[11px] font-black uppercase tracking-[0.2em]">Support Us</h5>
               <p className="text-zinc-500 text-[9px] uppercase tracking-widest font-bold leading-normal mb-2">
