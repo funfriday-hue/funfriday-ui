@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ResultModal from '../ResultModal'; 
 
 const MAX_LEVELS = 10;
-const MAX_TRIES_PER_WORD = 6;
+const MAX_TRIES_PER_WORD = 12;
 
 const KEYBOARD = [
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
