@@ -37,7 +37,9 @@ export default function RoomPage() {
     if (!playerName || !playerId || !roomId) return;
 
     const client = new Client({
-      webSocketFactory: () => new SockJS(SOCKET_URL, null, { withCredentials: true }),
+      // --- OPTION A FIX APPLIED ---
+      // Nesting withCredentials inside the xhr object option mapping
+      webSocketFactory: () => new SockJS(SOCKET_URL, null, { xhr: { withCredentials: true } }),
       
       onConnect: () => {
         setConnected(true);
