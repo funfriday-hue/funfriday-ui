@@ -26,6 +26,9 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
   const myStats = scoreBoard[playerId]; 
   const isMeFinished = myStats?.status === "COMPLETED" || myStats?.status === "GIVEN_UP";
 
+  // Dynamic sizing derived directly from the current active matrix array length
+  const size = localBoard.length || 9;
+
   const formatTimeResult = (ms: number) => {
     if (!ms || ms < 0) return "0 sec";
     const totalSeconds = Math.floor(ms / 1000);
@@ -63,7 +66,7 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
     const key = `${row}-${col}`;
 
     if (notesMode && value !== "") {
-      if (isNaN(num) || num < 1 || num > 9) return;
+      if (isNaN(num) || num < 1 || num > size) return;
       const current = notes[key] || [];
       const next = current.includes(num) ? current.filter(n => n !== num) : [...current, num].sort();
       setNotes({ ...notes, [key]: next });
@@ -92,14 +95,15 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
       const [r, c] = focusedCell.split("-").map(Number);
       let nextR = r;
       let nextC = c;
+      const maxIdx = size - 1;
 
-      if (e.key === "ArrowUp") nextR = r > 0 ? r - 1 : 8;
-      else if (e.key === "ArrowDown") nextR = r < 8 ? r + 1 : 0;
-      else if (e.key === "ArrowLeft") nextC = c > 0 ? c - 1 : 8;
-      else if (e.key === "ArrowRight") nextC = c < 8 ? c + 1 : 0;
+      if (e.key === "ArrowUp") nextR = r > 0 ? r - 1 : maxIdx;
+      else if (e.key === "ArrowDown") nextR = r < maxIdx ? r + 1 : 0;
+      else if (e.key === "ArrowLeft") nextC = c > 0 ? c - 1 : maxIdx;
+      else if (e.key === "ArrowRight") nextC = c < maxIdx ? c + 1 : 0;
       else if (e.key === "Backspace" || e.key === "Delete") {
         handleCellChange(r, c, "");
-      } else if (/^[1-9]$/.test(e.key)) {
+      } else if (new RegExp(`^[1-${size}]$`).test(e.key)) {
         handleCellChange(r, c, e.key);
       } else {
         return;
@@ -111,7 +115,7 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedCell, isMeFinished, notesMode, localBoard, notes, showGiveUpConfirm]);
+  }, [focusedCell, isMeFinished, notesMode, localBoard, notes, showGiveUpConfirm, size]);
 
   const confirmGiveUp = () => {
     setShowGiveUpConfirm(false);
@@ -144,15 +148,28 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
         )}
       </div>
 
-      {/* SUDOKU GRID */}
-      <div className={`grid grid-cols-9 border-[3px] border-zinc-700 bg-zinc-900 shadow-2xl transition-all duration-500 ${isMeFinished ? 'opacity-20 blur-xl pointer-events-none' : ''}`}>
+      {/* SUDOKU GRID - DYNAMICALLY RESOLVES COLUMNS BASED ON RUNTIME MATRIX */}
+      <div 
+        className={`grid border-[3px] border-zinc-700 bg-zinc-900 shadow-2xl transition-all duration-500 
+          ${size === 6 ? "grid-cols-6" : "grid-cols-9"} 
+          ${isMeFinished ? 'opacity-20 blur-xl pointer-events-none' : ''}`}
+      >
         {localBoard.map((row, rIdx) => row.map((cell, cIdx) => {
           const isInitial = gameState.gameData.initialBoard[rIdx][cIdx] !== 0;
           const key = `${rIdx}-${cIdx}`;
           const isFocused = focusedCell === key;
           
-          const bR = (cIdx + 1) % 3 === 0 && cIdx !== 8 ? "border-r-[3px] border-zinc-700" : "border-r border-zinc-800/50";
-          const bB = (rIdx + 1) % 3 === 0 && rIdx !== 8 ? "border-b-[3px] border-zinc-700" : "border-b border-zinc-800/50";
+          // Custom subgrid dynamic divider limits (6x6 splits into 2x3 blocks, 9x9 splits into 3x3 blocks)
+          const colBlockDelimiter = size === 6 ? 3 : 3;
+          const rowBlockDelimiter = size === 6 ? 2 : 3;
+
+          const bR = (cIdx + 1) % colBlockDelimiter === 0 && cIdx !== (size - 1) 
+            ? "border-r-[3px] border-zinc-700" 
+            : "border-r border-zinc-800/50";
+
+          const bB = (rIdx + 1) % rowBlockDelimiter === 0 && rIdx !== (size - 1) 
+            ? "border-b-[3px] border-zinc-700" 
+            : "border-b border-zinc-800/50";
 
           return (
             <div 
@@ -169,7 +186,7 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
 
               {cell === 0 && (
                 <div className="absolute inset-0 grid grid-cols-3 p-1 pointer-events-none items-center justify-items-center">
-                  {[1,2,3,4,5,6,7,8,9].map(n => (
+                  {Array.from({ length: size }, (_, i) => i + 1).map(n => (
                     <span 
                       key={n} 
                       className={`text-[9px] leading-none tracking-tight transition-colors duration-75

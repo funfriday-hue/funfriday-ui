@@ -15,7 +15,6 @@ const SOCKET_URL = typeof window !== "undefined" && window.location.hostname !==
   ? `${window.location.protocol}//${window.location.host}/ws`
   : "http://localhost:8080/ws";
 
-// Helper hook to track a single universal server authority countdown loop safely
 function useRoomCountdown(endTimeMillis: number) {
   const [secondsRemaining, setSecondsRemaining] = useState<number>(0);
 
@@ -31,7 +30,6 @@ function useRoomCountdown(endTimeMillis: number) {
       return diff > 0 ? Math.floor(diff / 1000) : 0;
     };
 
-    // Calculate immediate state to prevent starting delay flickers
     setSecondsRemaining(calculateRemaining());
 
     const ticker = setInterval(() => {
@@ -55,7 +53,6 @@ export default function RoomPage() {
   const [room, setRoom] = useState<any>(null);
   const [connected, setConnected] = useState(false);
   
-  // Track server errors dynamically to trigger row shakes in Wordle
   const [wordError, setWordError] = useState<{ id: number; message: string } | null>(null);
   const stompClientRef = useRef<Client | null>(null);
 
@@ -75,18 +72,15 @@ export default function RoomPage() {
       onConnect: () => {
         setConnected(true);
         
-        // Main room logic channel
         client.subscribe(`/topic/room/${roomId}`, (msg) => {
           setRoom(JSON.parse(msg.body));
         });
 
-        // Global layout or lobby error queue fallback
         client.subscribe("/user/queue/errors", (msg) => {
           const errorData = JSON.parse(msg.body);
           alert(`Lobby Error [${errorData.status}]: ${errorData.error}`);
         });
 
-        // Listen to targeted room error endpoints for live input validation
         client.subscribe(`/topic/room/${roomId}/player/${playerId}/errors`, (msg) => {
           setWordError({
             id: Date.now(),
@@ -114,20 +108,10 @@ export default function RoomPage() {
     };
   }, [roomId, playerName, playerId]);
 
-  // Read backend state markers to supply countdown values
   const serverEndTime = room?.gameData?.endTimeMillis || 0;
   const gameModeType = room?.gameData?.gameConfiguration?.gameMode || "";
   const isTimeAttack = gameModeType.startsWith("TIME_");
   const secondsLeft = useRoomCountdown(serverEndTime);
-
-  const handleStartGame = (configData: { gameMode: string; genericProperties: Record<string, any> }) => {
-    if (stompClientRef.current?.connected) {
-      stompClientRef.current.publish({
-        destination: `/app/game/${roomId}/start`,
-        body: JSON.stringify(configData),
-      });
-    }
-  };
 
   const formatTimerDisplay = (totalSecs: number) => {
     const mins = Math.floor(totalSecs / 60);
@@ -142,7 +126,7 @@ export default function RoomPage() {
       playerId: playerId!,
       stompClient: stompClientRef.current!,
       gameState: room,
-      secondsLeft: secondsLeft, // Pass absolute tracker time directly into sub-components
+      secondsLeft: secondsLeft,
     };
     
     return room.type === "SUDOKU" ? (
@@ -162,20 +146,12 @@ export default function RoomPage() {
   }
 
   const scoreBoardData = room.gameData?.scoreBoard || room.scoreBoard || {};
-  const activePlayerMap = room.playerMap || {};
-  
-  const playersList = room.status === "WAITING" 
-    ? Object.keys(activePlayerMap) 
-    : Object.keys(scoreBoardData);
-
-  const isHost = room.host?.id === playerId || activePlayerMap[playerId]?.host === true;
   const isUrgent = secondsLeft <= 30 && secondsLeft > 0;
 
   return (
     <div className="flex flex-row h-screen bg-[#0a0a0b] text-white overflow-hidden font-sans">
       <main className="flex-grow relative flex flex-col items-stretch justify-start overflow-y-auto">
         
-        {/* GLOBAL TIME ATTACK COUNTDOWN TOP BANNER CHIP */}
         {room.status === "IN_PROGRESS" && isTimeAttack && secondsLeft > 0 && (
           <div className={`w-full py-2 px-6 text-[10px] font-black tracking-[0.25em] transition-colors duration-500 flex justify-between items-center shrink-0 z-50 shadow-md border-b
             ${isUrgent 
@@ -195,14 +171,11 @@ export default function RoomPage() {
 
         <div className="flex-grow flex items-center justify-center p-4 overflow-y-auto">
           {room.status === "WAITING" ? (
+            /* MODIFIED THIS LINE TO PERFECTLY MATCH YOUR STRUCTURE */
             <WaitingRoom
-              roomId={roomId as string}
-              roomType={room.type}
-              players={playersList}
-              playerMap={activePlayerMap}
-              scoreBoard={scoreBoardData}
-              isHost={isHost}
-              onStart={handleStartGame}
+              roomData={room}
+              currentPlayerId={playerId}
+              stompClient={stompClientRef.current}
             />
           ) : (
             renderActiveGame()

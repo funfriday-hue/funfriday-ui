@@ -15,9 +15,9 @@ const GAMES = [
     detail: "A high-stakes multiplayer race to decode the secret 5-letter word.", 
     active: true,
     instructions: {
-      howToPlay: "Guess the hidden 5-letter word in 12 attempts. Each guess provides colored feedback: Green for correct letter/spot, Yellow for wrong spot, Gray for not in word. Game is over on completing 10 words or 12 wrong guess of a word.",
-      multiplayer: "Everyone in the room is solving the SAME word simultaneously. You can see your opponents' progress (but not their letters) in real-time.",
-      scoring: "Results are calculated based on the number of attempts and the time taken. Fewer attempts rank higher; ties are broken by speed."
+      howToPlay: "Guess the hidden 5-letter word within 12 attempts per word. Letters change color to guide you: Green means correct letter in the right spot, Yellow means correct letter in the wrong spot, and Gray means the letter is not in the word at all. The match ends when you successfully complete all phases, run out of tries on a single word, or have the countdown clock hit zero.",
+      multiplayer: "Everyone in the lobby simultaneously solves the exact same sequence of words. You can monitor your opponents' active progress, cleared totals, and current attempts in real-time, though their exact letter selections remain hidden.",
+      scoring: "Players are ranked primarily by the number of words successfully cleared. In standard matching modes, ties are broken by the total attempts taken and the time elapsed. When playing in dedicated Timer / Time Attack configurations, the individual phase times are entirely omitted from the final standings."
     }
   },
   { 
