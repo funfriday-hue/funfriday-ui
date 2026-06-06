@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ResultModal from '../ResultModal'; 
 
-const MAX_LEVELS = 10;
 const MAX_TRIES_PER_WORD = 12;
 
 const KEYBOARD = [
@@ -16,27 +15,37 @@ const KEYBOARD = [
 interface WordleProps {
   roomId: string;
   playerName: string;
-  playerId: string; // This expects your unique UUID string (e.g., b9feab...)
+  playerId: string;
   stompClient: any;
   gameState: any;
+  wordError: { id: number; message: string } | null; // Capturing error channel metrics
+  secondsLeft: number; // Received down from page.tsx engine
 }
 
-export default function Wordle({ roomId, playerName, playerId, stompClient, gameState }: WordleProps) {
+export default function Wordle({ roomId, playerName, playerId, stompClient, gameState, wordError, secondsLeft }: WordleProps) {
   const [currentGuess, setCurrentGuess] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // 1. DATA EXTRACTION FROM GLOBAL GAME STATE
+  // EXTRACT DATA & CONFIGURATIONS FROM BACKEND
   const scoreBoard = gameState?.gameData?.scoreBoard || gameState?.scoreBoard || {};
   const gameData = gameState?.gameData || {};
   const myStats = scoreBoard[playerId] || {};
   const attempts = gameData?.playerAttempts?.[playerId] || [];
   
+  const activeConfig = gameData?.gameConfiguration || {};
+  const gameModeType = activeConfig?.gameMode || "WORD_5"; 
+  
   const solvedCount = myStats.wordsCleared ?? 0;
   const totalTries = myStats.totalAttempts ?? 0;
   const myStatus = myStats.status; 
 
-  // 2. STATE CONDITIONAL LOGIC
+  const isTimeAttack = gameModeType.startsWith("TIME_");
+  
+  const displayTargetLabel = isTimeAttack 
+    ? `PHASE ${solvedCount + 1} (TIME ATTACK)` 
+    : `PHASE ${Math.min(solvedCount + 1, activeConfig.gameMode?.split('_')[1] || 5)} / ${activeConfig.gameMode?.split('_')[1] || 5}`;
+
   const isWordSolved = attempts.length > 0 && 
                         attempts[attempts.length - 1].result?.every((r: string) => r === 'GREEN');
   
@@ -44,7 +53,6 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
   const isGlobalFinished = gameState?.status === "FINISHED" || gameData?.finished;
   const showResultModal = isGlobalFinished || isPlayerDone;
 
-  // 3. SORTING & FORMATTING HELPERS
   const sortedPlayers = Object.values(scoreBoard).sort((a: any, b: any) => {
     if (b.wordsCleared !== a.wordsCleared) return b.wordsCleared - a.wordsCleared;
     if (a.totalAttempts !== b.totalAttempts) return a.totalAttempts - b.totalAttempts;
@@ -57,9 +65,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 4. AUTO-SCROLL & INPUT AUTO-CLEAR ONLY ON SUCCESSFUL VALIDATION OVERRIDES
   useEffect(() => {
-    // Input text clears ONLY when attempts change or level up occurs (meaning server accepted word)
     setCurrentGuess("");
     const timer = setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -67,7 +73,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
     return () => clearTimeout(timer);
   }, [solvedCount, attempts.length]);
 
-  // Framer Motion Keyframes for Wordle Shake Animation
+  // Shake Variant Configurations mapping across coordinates
   const shakeVariants = {
     shake: {
       x: [-6, 6, -6, 6, -4, 4, -2, 2, 0],
@@ -76,7 +82,15 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
     stable: { x: 0 }
   };
 
-  // 5. INPUT BUFFER HANDLING
+  // Watch incoming error timestamps from subscription channel to trigger animations
+  useEffect(() => {
+    if (!wordError) return;
+    
+    setIsShaking(true);
+    const timer = setTimeout(() => setIsShaking(false), 400);
+    return () => clearTimeout(timer);
+  }, [wordError]);
+
   const handleAction = (key: string) => {
     if (isGlobalFinished || isPlayerDone || isWordSolved) return;
 
@@ -90,10 +104,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
             guess: currentGuess.toUpperCase() 
           })
         });
-        // Note: setCurrentGuess("") is deliberately removed from here so the 
-        // rejected words remain intact in the active row buffer block!
       } else {
-        // Shake immediately if the user hits Enter on an incomplete string locally (< 5 letters)
         setIsShaking(true);
         setTimeout(() => setIsShaking(false), 400);
       }
@@ -104,46 +115,6 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
     }
   };
 
-  // 6. ISOLATED USER DEVICE-SPECIFIC ERROR SUBSCRIPTION (FIX FOR SHAKING MECHANICS)
-  useEffect(() => {
-    if (!stompClient) return;
-
-    // Direct target match to your updated backend sendErrorMessage path
-    const errorTopicPath = `/topic/room/${roomId}/player/${playerId}/errors`;
-
-    const handleIncomingError = (message: any) => {
-      console.log("📥 RECEIVED TARGETED WS ERROR:", message.body);
-      
-      if (message.body === "NOT_A_VALID_WORD") {
-        setIsShaking(true);
-        setTimeout(() => setIsShaking(false), 400);
-      }
-    };
-
-    let errorSubscription: any = null;
-
-    if (stompClient.connected) {
-      console.log(`📡 Attaching error listener to: ${errorTopicPath}`);
-      errorSubscription = stompClient.subscribe(errorTopicPath, handleIncomingError);
-    } else {
-      // Fallback lifecycle hook wrapper if socket connection completes after layout mount
-      const fallbackOnConnect = stompClient.onConnect;
-      stompClient.onConnect = (frame: any) => {
-        if (fallbackOnConnect) fallbackOnConnect(frame);
-        console.log(`📡 Attaching error listener (delayed hook) to: ${errorTopicPath}`);
-        errorSubscription = stompClient.subscribe(errorTopicPath, handleIncomingError);
-      };
-    }
-
-    return () => {
-      if (errorSubscription) {
-        console.log(`🔌 Cleaning up error listener subscription: ${errorTopicPath}`);
-        errorSubscription.unsubscribe();
-      }
-    };
-  }, [stompClient, roomId, playerId]);
-
-  // 7. PHYSICAL KEYBOARD HOOKS
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Backspace") {
@@ -180,13 +151,13 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
   };
 
   return (
-    <div className="flex flex-col h-screen w-full max-w-2xl mx-auto bg-black text-white overflow-hidden font-sans">
+    <div className="flex flex-col h-full w-full max-w-2xl mx-auto bg-black text-white overflow-hidden font-sans justify-between">
       
-      {/* HEADER */}
+      {/* HEADER WITH EMBEDDED CONTEXT TIMER CONTROLS */}
       <div className="p-6 border-b border-white/10 flex justify-between items-end bg-zinc-950/50 backdrop-blur-md">
         <div>
           <p className="text-cyan-500 font-mono text-[10px] tracking-[0.3em] uppercase mb-1">
-            {myStatus === "FAILED" ? "PROTOCOL TERMINATED" : `PHASE ${Math.min(solvedCount + 1, MAX_LEVELS)} / ${MAX_LEVELS}`}
+            {myStatus === "FAILED" ? "PROTOCOL TERMINATED" : displayTargetLabel}
           </p>
           <h1 className="text-3xl font-black italic uppercase leading-none tracking-tighter">
             Solved: <span className="text-emerald-500">{solvedCount}</span>
@@ -194,12 +165,21 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
         </div>
 
         <div className="flex gap-8">
-          <div className="text-right">
-            <p className="text-[10px] text-zinc-500 uppercase font-mono leading-none mb-1">Current</p>
-            <p className="text-2xl font-bold text-cyan-500 leading-none tracking-tight">
-              {attempts.length}<span className="text-zinc-600 text-xs ml-1">/{MAX_TRIES_PER_WORD}</span>
-            </p>
-          </div>
+          {isTimeAttack ? (
+            <div className="text-right">
+              <p className="text-[10px] text-zinc-500 uppercase font-mono leading-none mb-1">Clock</p>
+              <p className={`text-2xl font-mono font-bold tracking-tight ${secondsLeft <= 30 && secondsLeft > 0 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                {formatTime(secondsLeft)}
+              </p>
+            </div>
+          ) : (
+            <div className="text-right">
+              <p className="text-[10px] text-zinc-500 uppercase font-mono leading-none mb-1">Current</p>
+              <p className="text-2xl font-bold text-cyan-500 leading-none tracking-tight">
+                {attempts.length}<span className="text-zinc-600 text-xs ml-1">/{MAX_TRIES_PER_WORD}</span>
+              </p>
+            </div>
+          )}
           <div className="text-right border-l border-white/10 pl-8">
             <p className="text-[10px] text-zinc-500 uppercase font-mono leading-none mb-1">Total Tries</p>
             <p className="text-2xl font-bold text-white leading-none tracking-tight">{totalTries}</p>
@@ -208,14 +188,13 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
       </div>
 
       {/* GAME GRID */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center gap-3 no-scrollbar relative">
+      <div className="flex-grow overflow-y-auto p-4 flex flex-col items-center gap-3 no-scrollbar relative justify-start">
         <AnimatePresence mode="wait">
           <motion.div 
             key={solvedCount}
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             className="flex flex-col gap-2"
           >
-            {/* Historical Accepted Rows */}
             {attempts.map((att: any, i: number) => (
               <div key={`row-${i}`} className="flex gap-2">
                 {att.guess.split("").map((char: string, j: number) => (
@@ -233,7 +212,6 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
               </div>
             ))}
 
-            {/* Active Typing Row Frame with Shake Wrapper Binding */}
             {!isPlayerDone && !isWordSolved && (
               <motion.div 
                 variants={shakeVariants}
@@ -254,7 +232,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
         {isWordSolved && !isPlayerDone && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="mt-10 flex flex-col items-center gap-4 bg-zinc-900/80 p-6 rounded-3xl border border-white/10 backdrop-blur-xl"
+            className="mt-10 flex flex-col items-center gap-4 bg-zinc-900/80 p-6 rounded-3xl border border-white/10 backdrop-blur-xl animate-fade-in"
           >
              <h2 className="text-xl font-black text-emerald-500 tracking-widest italic uppercase">Phase Clear</h2>
              <button onClick={triggerNextPhase} className="px-10 py-4 bg-white text-black font-black rounded-xl uppercase tracking-widest text-[10px] hover:bg-emerald-500 transition-all shadow-2xl active:scale-95">
@@ -273,8 +251,8 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
         <div ref={bottomRef} className="h-20" />
       </div>
 
-      {/* ONSCREEN VIRTUAL KEYBOARD */}
-      <div className={`p-4 bg-zinc-950 border-t border-white/5 pb-10 transition-opacity duration-500 ${isWordSolved || isPlayerDone ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+      {/* KEYBOARD */}
+      <div className={`p-4 bg-zinc-950 border-t border-white/5 pb-10 shrink-0 transition-opacity duration-500 ${isWordSolved || isPlayerDone ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex flex-col gap-2 max-w-lg mx-auto">
           {KEYBOARD.map((row, i) => (
             <div key={i} className="flex justify-center gap-1.5">
@@ -288,13 +266,13 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
         </div>
       </div>
 
-      {/* FINAL INTERSTITIAL END GAME SCREEN MODAL */}
       <ResultModal 
         isOpen={showResultModal}
         title={myStatus === "FAILED" ? "Mission Terminated" : "Mission Standings"}
         localPlayerName={playerName}
         players={sortedPlayers}
-        renderStats={(p: any) => (
+        isTimeAttack={isTimeAttack} // Pass the layout context state directly to the modal
+        renderStats={(p: any, modalIsTimeAttack?: boolean) => (
           <div className="text-right">
             <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${p.status === 'FAILED' ? 'text-red-500' : 'text-emerald-500'}`}>
                 {p.status}
@@ -306,9 +284,12 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
               <p className="text-zinc-500 font-mono text-[10px] uppercase">
                   {p.totalAttempts} Tries
               </p>
-              <p className="text-cyan-500 font-mono text-[11px] font-bold tracking-tighter">
-                  ⏱ {formatTime(p.timeInSeconds)}
-              </p>
+              {/* Only show the individual clear-times if the session WAS NOT a standard Time Attack match */}
+              {!modalIsTimeAttack && (
+                <p className="text-cyan-500 font-mono text-[11px] font-bold tracking-tighter">
+                    ⏱ {formatTime(p.timeInSeconds)}
+                </p>
+              )}
             </div>
           </div>
         )}

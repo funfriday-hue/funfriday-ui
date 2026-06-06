@@ -7,7 +7,8 @@ interface ResultModalProps<T> {
   title?: string;
   players: T[]; // These should be the stat objects from the scoreboard
   localPlayerName: string;
-  renderStats: (player: T) => React.ReactNode;
+  renderStats: (player: T, isTimeAttack?: boolean) => React.ReactNode;
+  isTimeAttack?: boolean; // New optional property to track game context
 }
 
 export default function ResultModal<T extends { player: { name: string }, status: string }>({
@@ -15,7 +16,8 @@ export default function ResultModal<T extends { player: { name: string }, status
   title = "Match Over",
   players,
   localPlayerName,
-  renderStats
+  renderStats,
+  isTimeAttack = false
 }: ResultModalProps<T>) {
   return (
     <AnimatePresence>
@@ -44,11 +46,11 @@ export default function ResultModal<T extends { player: { name: string }, status
                     key={idx} initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
                     className={`flex items-center justify-between p-4 rounded-xl border transition-all ${boxStyles}`}
                   >
-                    <p className="font-black uppercase tracking-tight text-white">
+                    <div className="font-black uppercase tracking-tight text-white select-none">
                       {name}
                       {isLocal && <span className="ml-2 text-[8px] font-mono text-zinc-500 underline">You</span>}
-                    </p>
-                    <div className="text-right">{renderStats(stat)}</div>
+                    </div>
+                    <div className="text-right">{renderStats(stat, isTimeAttack)}</div>
                   </motion.div>
                 );
               })}
