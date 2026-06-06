@@ -152,15 +152,10 @@ export default function RoomPage() {
     <div className="flex flex-row h-screen bg-[#0a0a0b] text-white overflow-hidden font-sans">
       <main className="flex-grow relative flex flex-col items-stretch justify-start overflow-y-auto">
         
-        {room.status === "IN_PROGRESS" && isTimeAttack && secondsLeft > 0 && (
-          <div className={`w-full py-2 px-6 text-[10px] font-black tracking-[0.25em] transition-colors duration-500 flex justify-between items-center shrink-0 z-50 shadow-md border-b
-            ${isUrgent 
-              ? 'bg-red-600 border-red-500 text-white animate-pulse' 
-              : 'bg-zinc-950 border-white/5 text-cyan-400'
-            }`}
-          >
+        {room.status === "IN_PROGRESS" && isTimeAttack && isUrgent && (
+          <div className="w-full py-2 px-6 text-[10px] font-black tracking-[0.25em] transition-colors duration-500 flex justify-between items-center shrink-0 z-50 shadow-md border-b bg-red-600 border-red-500 text-white animate-pulse">
             <span className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${isUrgent ? 'bg-white' : 'bg-cyan-400 animate-ping'}`} />
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
               TIME ATTACK POOL ACTIVE
             </span>
             <span className="font-mono text-sm bg-black/40 px-2.5 py-0.5 rounded-md border border-white/10 text-white shadow-inner">
@@ -171,7 +166,6 @@ export default function RoomPage() {
 
         <div className="flex-grow flex items-center justify-center p-4 overflow-y-auto">
           {room.status === "WAITING" ? (
-            /* MODIFIED THIS LINE TO PERFECTLY MATCH YOUR STRUCTURE */
             <WaitingRoom
               roomData={room}
               currentPlayerId={playerId}
