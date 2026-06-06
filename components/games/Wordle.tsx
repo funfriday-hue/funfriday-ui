@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import ResultModal from '../ResultModal'; 
 
 const MAX_TRIES_PER_WORD = 12;
@@ -74,10 +74,10 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, game
   }, [solvedCount, attempts.length]);
 
   // Shake Variant Configurations mapping across coordinates
-  const shakeVariants = {
+  const shakeVariants: Variants = {
     shake: {
       x: [-6, 6, -6, 6, -4, 4, -2, 2, 0],
-      transition: { duration: 0.4, ease: "easeInOut" }
+      transition: { duration: 0.4, ease: "easeInOut" as const }
     },
     stable: { x: 0 }
   };
