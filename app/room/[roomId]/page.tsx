@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Cookies from "js-cookie";
 import { Client } from "@stomp/stompjs";
@@ -10,58 +10,28 @@ import Wordle from "@/components/games/Wordle";
 import Sudoku from "@/components/games/Sudoku";
 import Leaderboard from "@/components/Leaderboard";
 import WaitingRoom from "@/components/WaitingRoom";
+import { getSortedPlayers } from "@/utils/gameRules";
 
 const SOCKET_URL = typeof window !== "undefined" && window.location.hostname !== "localhost"
   ? `${window.location.protocol}//${window.location.host}/ws`
   : "http://localhost:8080/ws";
 
-function useRoomCountdown(endTimeMillis: number) {
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(0);
-
-  useEffect(() => {
-    if (!endTimeMillis || endTimeMillis <= 0) {
-      setSecondsRemaining(0);
-      return;
-    }
-
-    const calculateRemaining = () => {
-      const now = Date.now();
-      const diff = endTimeMillis - now;
-      return diff > 0 ? Math.floor(diff / 1000) : 0;
-    };
-
-    setSecondsRemaining(calculateRemaining());
-
-    const ticker = setInterval(() => {
-      const remaining = calculateRemaining();
-      setSecondsRemaining(remaining);
-      if (remaining <= 0) {
-        clearInterval(ticker);
-      }
-    }, 1000);
-
-    return () => clearInterval(ticker);
-  }, [endTimeMillis]);
-
-  return secondsRemaining;
-}
-
 export default function RoomPage() {
   const { roomId } = useParams();
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
-  const [room, setRoom] = useState<any>(null);
+  
+  const [publicRoom, setPublicRoom] = useState<any>(null);
+  const [privateData, setPrivateData] = useState<any>(null);
   const [connected, setConnected] = useState(false);
   
   const [wordError, setWordError] = useState<{ id: number; message: string } | null>(null);
   const stompClientRef = useRef<Client | null>(null);
 
+
   useEffect(() => {
-    const savedName = Cookies.get("playerName");
-    const savedId = Cookies.get("playerId");
-    
-    if (savedName) setPlayerName(savedName);
-    if (savedId) setPlayerId(savedId);
+    setPlayerName(Cookies.get("playerName") || null);
+    setPlayerId(Cookies.get("playerId") || null);
   }, []);
 
   useEffect(() => {
@@ -73,112 +43,124 @@ export default function RoomPage() {
         setConnected(true);
         
         client.subscribe(`/topic/room/${roomId}`, (msg) => {
-          setRoom(JSON.parse(msg.body));
+          try { setPublicRoom(JSON.parse(msg.body)); } catch (e) {}
         });
 
-        client.subscribe("/user/queue/errors", (msg) => {
-          const errorData = JSON.parse(msg.body);
-          alert(`Lobby Error [${errorData.status}]: ${errorData.error}`);
+        client.subscribe(`/topic/room/${roomId}/player/${playerId}/state`, (msg) => {
+          try { setPrivateData(JSON.parse(msg.body)); } catch (e) {}
         });
 
         client.subscribe(`/topic/room/${roomId}/player/${playerId}/errors`, (msg) => {
-          setWordError({
-            id: Date.now(),
-            message: msg.body,
-          });
+          setWordError({ id: Date.now(), message: msg.body });
         });
 
-        client.publish({
-          destination: `/app/game/${roomId}/join`,
-          body: JSON.stringify({}), 
-        });
-      },
-      onStompError: (frame) => {
-        console.error("Broker reported error: " + frame.headers["message"]);
-      },
+        client.publish({ destination: `/app/game/${roomId}/join`, body: JSON.stringify({}) });
+      }
     });
 
     client.activate();
     stompClientRef.current = client;
-
-    return () => {
-      client.deactivate().catch((err) => {
-        console.error("Error encountered while deactivating STOMP client: ", err);
-      });
-    };
+    return () => { client.deactivate().catch(() => {}); };
   }, [roomId, playerName, playerId]);
 
-  const serverEndTime = room?.gameData?.endTimeMillis || 0;
-  const gameModeType = room?.gameData?.gameConfiguration?.gameMode || "";
-  const isTimeAttack = gameModeType.startsWith("TIME_");
-  const secondsLeft = useRoomCountdown(serverEndTime);
+  // Clean data parser for safe attribute reading
+  const cleanPublic = useMemo(() => {
+    if (!publicRoom) return null;
+    return publicRoom.body ? JSON.parse(publicRoom.body) : publicRoom;
+  }, [publicRoom]);
 
-  const formatTimerDisplay = (totalSecs: number) => {
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Read active game architecture mode type (SUDOKU vs WORDLE)
+  const resolvedGameType = useMemo(() => {
+    if (!cleanPublic) return "WORDLE";
+    return cleanPublic.type || cleanPublic.gameType || "WORDLE";
+  }, [cleanPublic]);
 
-  const renderActiveGame = () => {
-    const commonProps = {
-      roomId: roomId as string,
-      playerName: playerName!,
-      playerId: playerId!,
-      stompClient: stompClientRef.current!,
-      gameState: room,
-      secondsLeft: secondsLeft,
-    };
-    
-    return room.type === "SUDOKU" ? (
-      <Sudoku {...commonProps} />
-    ) : (
-      <Wordle {...commonProps} wordError={wordError} />
+  // Dynamic extraction matching your backend remainingSeconds JSON payload schema
+  const serverSecondsLeft = useMemo(() => {
+    if (!cleanPublic) return 0;
+    return (
+      cleanPublic.gameSpecificPublicData?.remainingSeconds ?? 
+      cleanPublic.secondsLeft ?? 
+      cleanPublic.gameSpecificPublicData?.secondsLeft ?? 
+      cleanPublic.timeLeft ?? 
+      0
     );
-  };
+  }, [cleanPublic]);
 
-  if (!playerName || !playerId || !connected || !room) {
+  // Synchronize public and private data layers to fix score rendering lag
+const synchronizedPlayers = useMemo(() => {
+  // 1. Validate that the players array exists in the public data
+  if (!cleanPublic || !Array.isArray(cleanPublic.players)) {
+    console.warn("DEBUG: No players found in cleanPublic!");
+    return [];
+  }
+
+  // 2. Return the players array directly. 
+  // No need to merge with privateData, as the score and stats 
+  // are now correctly provided in the public state.
+  return cleanPublic.players;
+}, [cleanPublic]);
+
+  // 1. Ensure sortedPlayers is robust
+    const sortedPlayers = useMemo(() => {
+      // If no players, return empty
+      if (!synchronizedPlayers || synchronizedPlayers.length === 0) return [];
+      
+      // Use your rule engine
+      return getSortedPlayers(synchronizedPlayers, resolvedGameType);
+    }, [synchronizedPlayers, resolvedGameType]);
+
+  if (!playerName || !playerId || !connected || !cleanPublic) {
     return (
       <div className="h-screen bg-black flex flex-col items-center justify-center text-white font-mono">
-        <div className="animate-pulse mb-4 tracking-[0.5em]">ESTABLISHING PROTOCOL...</div>
-        <div className="text-[10px] text-zinc-500 uppercase">Room: {roomId}</div>
+        <div className="animate-pulse tracking-[0.4em] uppercase text-xs">CONNECTING UNIVERSE...</div>
       </div>
     );
   }
 
-  const scoreBoardData = room.gameData?.scoreBoard || room.scoreBoard || {};
-  const isUrgent = secondsLeft <= 30 && secondsLeft > 0;
+  // Determine global match status 
+  const currentStatus = cleanPublic?.status || "WAITING";
 
   return (
-    <div className="flex flex-row h-screen bg-[#0a0a0b] text-white overflow-hidden font-sans">
+    <div className="flex flex-row h-screen bg-black text-white overflow-hidden font-sans w-full">
       <main className="flex-grow relative flex flex-col items-stretch justify-start overflow-y-auto">
-        
-        {room.status === "IN_PROGRESS" && isTimeAttack && isUrgent && (
-          <div className="w-full py-2 px-6 text-[10px] font-black tracking-[0.25em] transition-colors duration-500 flex justify-between items-center shrink-0 z-50 shadow-md border-b bg-red-600 border-red-500 text-white animate-pulse">
-            <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-              TIME ATTACK POOL ACTIVE
-            </span>
-            <span className="font-mono text-sm bg-black/40 px-2.5 py-0.5 rounded-md border border-white/10 text-white shadow-inner">
-              ⏱️ {formatTimerDisplay(secondsLeft)}
-            </span>
-          </div>
-        )}
-
         <div className="flex-grow flex items-center justify-center p-4 overflow-y-auto">
-          {room.status === "WAITING" ? (
-            <WaitingRoom
-              roomData={room}
-              currentPlayerId={playerId}
-              stompClient={stompClientRef.current}
+          
+          {currentStatus === "WAITING" ? (
+            <WaitingRoom 
+              roomData={cleanPublic} 
+              currentPlayerId={playerId} 
+              stompClient={stompClientRef.current} 
+            />
+          ) : resolvedGameType === "SUDOKU" ? (
+            <Sudoku 
+              roomId={roomId as string}
+              playerName={playerName}
+              playerId={playerId!}
+              stompClient={stompClientRef.current!}
+              publicState={cleanPublic}
+              privateState={privateData?.body ? JSON.parse(privateData.body) : privateData}
             />
           ) : (
-            renderActiveGame()
+            <Wordle 
+              roomId={roomId as string}
+              playerName={playerName}
+              playerId={playerId!}
+              stompClient={stompClientRef.current!}
+              publicState={cleanPublic}
+              privateState={privateData}
+              wordError={wordError}
+              secondsLeft={serverSecondsLeft}
+              synchronizedPlayers={synchronizedPlayers}
+            />
           )}
+
         </div>
       </main>
 
-      <aside className="w-80 border-l border-white/5 bg-zinc-900/20 backdrop-blur-xl hidden lg:block overflow-y-auto">
-        <Leaderboard scoreBoard={scoreBoardData} localPlayerId={playerId} />
+      {/* RIGHT SIDEBAR LAYOUT CONTAINER */}
+      <aside className="w-80 border-l border-zinc-900 bg-black hidden lg:block overflow-y-auto shrink-0">
+        <Leaderboard scoreBoard={sortedPlayers} localPlayerId={playerId} gameType={resolvedGameType as "WORDLE" | "SUDOKU"} />
       </aside>
     </div>
   );

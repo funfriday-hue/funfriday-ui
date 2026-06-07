@@ -5,29 +5,41 @@ import { RotateCcw, Eraser, StickyNote, Flag, LayoutGrid, Clock, AlertTriangle }
 import { motion, AnimatePresence } from "framer-motion";
 
 interface SudokuProps {
-  gameState: any;
+  publicState: any;
+  privateState: any;
   playerName: string;
   playerId: string; 
   stompClient: any;
   roomId: string;
 }
 
-export default function Sudoku({ gameState, playerName, playerId, stompClient, roomId }: SudokuProps) {
+export default function Sudoku({ publicState, privateState, playerName, playerId, stompClient, roomId }: SudokuProps) {
   const [localBoard, setLocalBoard] = useState<number[][]>([]);
   const [notesMode, setNotesMode] = useState(false);
   const [notes, setNotes] = useState<Record<string, number[]>>({});
   const [focusedCell, setFocusedCell] = useState<string | null>("0-0");
   const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false);
   
-  // Ref to track if the change came from the server or the user
+  const lastKnownProgress = useRef(0);
   const isInternalChange = useRef(false);
 
-  const scoreBoard = gameState?.gameData?.scoreBoard || {};
-  const myStats = scoreBoard[playerId]; 
-  const isMeFinished = myStats?.status === "COMPLETED" || myStats?.status === "GIVEN_UP";
+  const playersList = publicState?.players || [];
+  const publicGameData = publicState?.gameSpecificPublicData || {};
+  const privateGameData = privateState?.privateGameData || {};
+  
+  const mySelf = privateState?.self || playersList.find((p: any) => p.id === playerId) || {};
+  const myProgress = mySelf?.stats?.percentSolved ?? mySelf?.progress ?? 0;
+  
+  useEffect(() => {
+    if (myProgress > 0) lastKnownProgress.current = myProgress;
+  }, [myProgress]);
 
-  // Dynamic sizing derived directly from the current active matrix array length
+  const myStatus = mySelf?.status || "UNKNOWN"; 
+  const isMeFinished = myStatus === "COMPLETED" || myStatus === "GIVEN_UP";
   const size = localBoard.length || 9;
+
+  // FIX: Determine progress to display
+  const displayProgress = isMeFinished ? lastKnownProgress.current : myProgress;
 
   const formatTimeResult = (ms: number) => {
     if (!ms || ms < 0) return "0 sec";
@@ -37,29 +49,31 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
     return mins === 0 ? `${secs} sec` : `${mins}m ${secs}s`;
   };
 
-  // Sync with server board when it changes (Initial load or verification recovery)
   useEffect(() => {
-    const serverBoard = gameState?.gameData?.playerBoards?.[playerId];
+    const serverBoard = privateGameData?.playerBoard || privateGameData?.board;
+    const initialBoard = privateGameData?.initialBoard || publicGameData?.initialBoard;
+
     if (serverBoard) {
       isInternalChange.current = true;
       setLocalBoard(serverBoard);
-    } else if (gameState?.gameData?.initialBoard) {
+    } else if (initialBoard) {
       isInternalChange.current = true;
-      setLocalBoard(gameState.gameData.initialBoard);
+      setLocalBoard(JSON.parse(JSON.stringify(initialBoard)));
     }
-  }, [gameState, playerId]);
+  }, [publicState, privateState, playerId]);
 
   const sendAction = (payload: any) => {
     if (stompClient?.connected) {
       stompClient.publish({
         destination: `/app/game/${roomId}/move`,
-        body: JSON.stringify({ playerName: playerId, ...payload }),
+        body: JSON.stringify({ ...payload }),
       });
     }
   };
 
   const handleCellChange = (row: number, col: number, value: string) => {
-    if (isMeFinished || gameState?.gameData?.initialBoard?.[row]?.[col] !== 0) return;
+    const initialBoard = privateGameData?.initialBoard || publicGameData?.initialBoard || [];
+    if (isMeFinished || initialBoard?.[row]?.[col] !== 0) return;
     
     const val = value.slice(-1);
     const num = parseInt(val);
@@ -83,7 +97,6 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
 
       setLocalBoard(updated);
       isInternalChange.current = false; 
-      
       sendAction({ type: "SUDOKU_SYNC", board: updated });
     }
   };
@@ -122,19 +135,25 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
     sendAction({ type: "SUDOKU_GIVE_UP" });
   };
 
-  if (!gameState?.gameData || localBoard.length === 0) return null;
+  const currentInitialBoard = privateGameData?.initialBoard || publicGameData?.initialBoard;
+
+  if (!currentInitialBoard || !localBoard || localBoard.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-zinc-500 font-mono text-xs uppercase tracking-[0.3em] animate-pulse">
+        ⚡ Connecting to Arena Matrix...
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-black text-white p-4 font-sans">
-      
-      {/* HEADER */}
       <div className="flex justify-between items-center w-full max-w-[450px] mb-8 mt-4 px-1">
         <div className="flex flex-col gap-1 bg-zinc-900/50 border border-zinc-800 p-3 px-4 rounded-2xl shadow-xl">
           <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
             <LayoutGrid size={12} className="text-cyan-500" /> Progress
           </span>
           <span className="text-2xl font-mono font-black text-white leading-none">
-            {Math.round(myStats?.progress || 0)}%
+            {Math.trunc(displayProgress)}%
           </span>
         </div>
 
@@ -148,18 +167,16 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
         )}
       </div>
 
-      {/* SUDOKU GRID - DYNAMICALLY RESOLVES COLUMNS BASED ON RUNTIME MATRIX */}
       <div 
         className={`grid border-[3px] border-zinc-700 bg-zinc-900 shadow-2xl transition-all duration-500 
           ${size === 6 ? "grid-cols-6" : "grid-cols-9"} 
           ${isMeFinished ? 'opacity-20 blur-xl pointer-events-none' : ''}`}
       >
         {localBoard.map((row, rIdx) => row.map((cell, cIdx) => {
-          const isInitial = gameState.gameData.initialBoard[rIdx][cIdx] !== 0;
+          const isInitial = currentInitialBoard[rIdx]?.[cIdx] !== 0;
           const key = `${rIdx}-${cIdx}`;
           const isFocused = focusedCell === key;
           
-          // Custom subgrid dynamic divider limits (6x6 splits into 2x3 blocks, 9x9 splits into 3x3 blocks)
           const colBlockDelimiter = size === 6 ? 3 : 3;
           const rowBlockDelimiter = size === 6 ? 2 : 3;
 
@@ -205,7 +222,6 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
         }))}
       </div>
 
-      {/* CONTROLS */}
       <div className="grid grid-cols-3 gap-3 mt-10 w-full max-w-[450px]">
         <button 
           onClick={() => {
@@ -246,7 +262,6 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
         </button>
       </div>
 
-      {/* CUSTOM DESIGN-SYNCED GIVE UP CONFIRMATION MODAL */}
       <AnimatePresence>
         {showGiveUpConfirm && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
@@ -261,7 +276,7 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
               </div>
               <h3 className="text-xl font-black uppercase italic text-white tracking-tight mb-2">Abort Assignment?</h3>
               <p className="text-zinc-500 text-xs uppercase font-mono tracking-tight leading-relaxed mb-6">
-                Giving up logs your final progress at {Math.round(myStats?.progress || 0)}%. This action cannot be reversed.
+                Giving up logs your final progress at {Math.trunc(displayProgress)}%. This action cannot be reversed.
               </p>
               <div className="flex gap-3">
                 <button 
@@ -282,59 +297,69 @@ export default function Sudoku({ gameState, playerName, playerId, stompClient, r
         )}
       </AnimatePresence>
 
-      {/* FINAL SCOREBOARD MODAL */}
       {isMeFinished && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
-          <div className="bg-zinc-950 border border-white/10 p-8 rounded-[40px] text-center max-w-md w-full shadow-2xl">
-            <h2 className="text-3xl font-black mb-6 uppercase italic text-white tracking-tighter">Protocol Ended</h2>
-            <div className="space-y-3 mb-8">
-              {Object.values(scoreBoard)
-                .sort((a: any, b: any) => b.progress - a.progress)
-                .map((p: any) => {
-                  const isCompleted = p.status === 'COMPLETED';
-                  const isGivenUp = p.status === 'GIVEN_UP';
-                  
-                  // Style configurations based strictly on completion or surrender states
-                  let cardStyles = "bg-white/5 border-white/5 text-zinc-400";
-                  if (isCompleted) {
-                    cardStyles = "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)]";
-                  } else if (isGivenUp) {
-                    cardStyles = "bg-amber-500/10 border-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.05)]";
-                  }
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
+    <div className="bg-zinc-950 border border-white/10 p-8 rounded-[40px] text-center max-w-md w-full shadow-2xl">
+      <h2 className="text-3xl font-black mb-6 uppercase italic text-white tracking-tighter">Protocol Ended</h2>
+      <div className="space-y-3 mb-8">
+        {[...playersList]
+          .sort((a: any, b: any) => {
+            const aProgress = a.stats?.percentSolved || 0;
+            const bProgress = b.stats?.percentSolved || 0;
+            const aTime = a.stats?.timeElapsedSeconds || Infinity;
+            const bTime = b.stats?.timeElapsedSeconds || Infinity;
 
-                  return (
-                    <div 
-                      key={p.playerId || p.playerName} 
-                      className={`flex justify-between items-center p-5 rounded-2xl border transition-all duration-300 ${cardStyles}`}
-                    >
-                      <div className="text-left">
-                         <span className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-white">
-                           {p.playerName}
-                           {p.player?.host && (
-                             <span className="px-1.5 py-0.5 text-[8px] bg-cyan-500/20 text-cyan-400 rounded border border-cyan-500/30 font-black normal-case">
-                               Host
-                             </span>
-                           )}
-                         </span>
-                         <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 mt-1">
-                           <Clock size={10} /> {formatTimeResult(p.totalTimeMillis)}
-                         </span>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-2xl font-mono font-black ${isCompleted ? 'text-emerald-400' : isGivenUp ? 'text-amber-500' : 'text-zinc-400'}`}>
-                          {Math.round(p.progress)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-            <button onClick={() => window.location.href = '/'} className="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-[10px] tracking-widest hover:bg-cyan-500 transition-all">
-              Exit to Lobby
-            </button>
-          </div>
-        </div>
-      )}
+            // 1. Sort by progress DESC (highest first)
+            if (bProgress !== aProgress) {
+              return bProgress - aProgress;
+            }
+            // 2. If progress is equal, sort by time ASC (lowest/fastest first)
+            return aTime - bTime;
+          })
+          .map((p: any) => {
+            const isLocal = p.id === playerId; // Check if this player is YOU
+            const serverProgress = p.stats?.percentSolved ?? p.progress ?? 0;
+            const display = isLocal ? lastKnownProgress.current : serverProgress;
+            const timeMs = (p.stats?.timeElapsedSeconds || 0) * 1000;
+
+            return (
+              <div
+                key={p.id}
+                className={`flex justify-between items-center p-5 rounded-2xl border ${
+                  isLocal 
+                    ? "bg-cyan-500/10 border-cyan-500/30" 
+                    : "border-white/5 bg-white/5"
+                }`}
+              >
+                <div className="text-left">
+                  <div className="text-white font-bold flex items-center gap-2">
+                    {p.playerName || p.name}
+                    {isLocal && (
+                      <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">
+                        YOU
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
+                    <Clock size={10} /> {formatTimeResult(timeMs)}
+                  </div>
+                </div>
+                <span className="text-2xl font-mono font-black text-emerald-400">
+                  {Math.trunc(display)}%
+                </span>
+              </div>
+            );
+          })}
+      </div>
+      <button
+        onClick={() => (window.location.href = "/")}
+        className="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-[10px] tracking-widest"
+      >
+        Exit to Lobby
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
