@@ -25,7 +25,8 @@ interface ResultModalProps<T> {
   localPlayerId: string;
   renderStats: (player: T, isTimeAttack?: boolean) => React.ReactNode;
   isTimeAttack?: boolean; 
-  targetWord?: string; // 👈 Added targetWord prop
+  targetWord?: string;
+  myStatus?: any; 
 }
 
 // Broadened generic constraints to gracefully absorb both nested or flat player models
