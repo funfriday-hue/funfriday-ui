@@ -7,11 +7,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="bg-slate-950">
+    <html lang="en" className="h-full">
+      <body className="bg-slate-950 min-h-full flex flex-col text-white m-0 p-0">
         <Navbar />
-        {/* The rest of your pages will render here */}
-        {children}
+        {/* This wrapper captures exactly 100% of the remaining viewport space */}
+        <div className="flex-1 flex flex-col min-h-0 relative w-full">
+          {children}
+        </div>
       </body>
     </html>
   );

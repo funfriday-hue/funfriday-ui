@@ -22,13 +22,15 @@ interface ResultModalProps<T> {
   title?: string;
   players: T[];
   localPlayerName: string;
-  localPlayerId: string; // Add this
+  localPlayerId: string;
   renderStats: (player: T, isTimeAttack?: boolean) => React.ReactNode;
   isTimeAttack?: boolean; 
+  targetWord?: string; // 👈 Added targetWord prop
 }
+
 // Broadened generic constraints to gracefully absorb both nested or flat player models
 export default function ResultModal<T extends { 
-  id?: string | number; // Add this
+  id?: string | number;
   status?: string; 
   playerName?: string; 
   name?: string; 
@@ -38,10 +40,17 @@ export default function ResultModal<T extends {
   title = "Match Over",
   players,
   localPlayerName,
-  localPlayerId, // Destructure this
+  localPlayerId,
   renderStats,
-  isTimeAttack = false
+  isTimeAttack = false,
+  targetWord // 👈 Destructured targetWord
 }: ResultModalProps<T>) {
+
+  // Auto-detect if the local player failed from the incoming players data array
+  const didLocalPlayerFail = players.some(
+    (p) => String(p.id) === String(localPlayerId) && (p.status === "FAILED" || p.status === "GIVEN_UP")
+  );
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -51,11 +60,29 @@ export default function ResultModal<T extends {
             animate={{ scale: 1, opacity: 1 }} 
             className="bg-zinc-950 border border-white/10 p-8 rounded-3xl max-w-md w-full shadow-2xl"
           >
-            <h2 className="text-3xl font-black text-center mb-8 italic text-white uppercase tracking-tighter">
+            <h2 className={`text-3xl font-black text-center italic text-white uppercase tracking-tighter ${didLocalPlayerFail && targetWord ? 'mb-4' : 'mb-8'}`}>
               {title}
             </h2>
             
-            <div className="space-y-3 mb-10 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar">
+            {/* TARGET WORD REVEAL PANEL */}
+            {didLocalPlayerFail && targetWord && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 text-center"
+              >
+                <p className="text-[9px] text-zinc-500 font-mono tracking-[0.3em] uppercase mb-1.5">
+                  The word was
+                </p>
+                <div className="inline-block bg-rose-500/10 border border-rose-500/20 px-6 py-2.5 rounded-2xl">
+                  <span className="text-rose-500 font-mono text-2xl font-black tracking-[0.25em] uppercase pl-[0.25em]">
+                    {targetWord.toUpperCase()}
+                  </span>
+                </div>
+              </motion.div>
+            )}
+            
+            <div className="space-y-3 mb-10 max-h-[45vh] overflow-y-auto pr-2 no-scrollbar">
               {players.map((stat, idx) => {
                 // Normalize attribute lookup strategies for flat vs nested payload schemas
                 const name = stat.playerName || stat.name || stat.player?.name || "Player";

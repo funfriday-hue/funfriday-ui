@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { RotateCcw, Eraser, StickyNote, Flag, LayoutGrid, Clock, AlertTriangle } from "lucide-react";
+import { RotateCcw, Eraser, StickyNote, Flag, LayoutGrid, Clock, AlertTriangle, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface SudokuProps {
@@ -38,7 +38,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
   const isMeFinished = myStatus === "COMPLETED" || myStatus === "GIVEN_UP";
   const size = localBoard.length || 9;
 
-  // FIX: Determine progress to display
+  // Determine progress to display
   const displayProgress = isMeFinished ? lastKnownProgress.current : myProgress;
 
   const formatTimeResult = (ms: number) => {
@@ -298,68 +298,107 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
       </AnimatePresence>
 
       {isMeFinished && (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
-    <div className="bg-zinc-950 border border-white/10 p-8 rounded-[40px] text-center max-w-md w-full shadow-2xl">
-      <h2 className="text-3xl font-black mb-6 uppercase italic text-white tracking-tighter">Protocol Ended</h2>
-      <div className="space-y-3 mb-8">
-        {[...playersList]
-          .sort((a: any, b: any) => {
-            const aProgress = a.stats?.percentSolved || 0;
-            const bProgress = b.stats?.percentSolved || 0;
-            const aTime = a.stats?.timeElapsedSeconds || Infinity;
-            const bTime = b.stats?.timeElapsedSeconds || Infinity;
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 overflow-y-auto">
+          <div className="bg-zinc-950 border border-white/10 p-8 rounded-[40px] text-center max-w-md w-full shadow-2xl my-auto">
+            <h2 className="text-3xl font-black mb-6 uppercase italic text-white tracking-tighter">Protocol Ended</h2>
+            <div className="space-y-3 mb-6">
+              {[...playersList]
+                .sort((a: any, b: any) => {
+                  const aProgress = a.stats?.percentSolved || 0;
+                  const bProgress = b.stats?.percentSolved || 0;
+                  const aTime = a.stats?.timeElapsedSeconds || Infinity;
+                  const bTime = b.stats?.timeElapsedSeconds || Infinity;
 
-            // 1. Sort by progress DESC (highest first)
-            if (bProgress !== aProgress) {
-              return bProgress - aProgress;
-            }
-            // 2. If progress is equal, sort by time ASC (lowest/fastest first)
-            return aTime - bTime;
-          })
-          .map((p: any) => {
-            const isLocal = p.id === playerId; // Check if this player is YOU
-            const serverProgress = p.stats?.percentSolved ?? p.progress ?? 0;
-            const display = isLocal ? lastKnownProgress.current : serverProgress;
-            const timeMs = (p.stats?.timeElapsedSeconds || 0) * 1000;
+                  if (bProgress !== aProgress) {
+                    return bProgress - aProgress;
+                  }
+                  return aTime - bTime;
+                })
+                .map((p: any) => {
+                  const isLocal = p.id === playerId; 
+                  const serverProgress = p.stats?.percentSolved ?? p.progress ?? 0;
+                  const display = isLocal ? lastKnownProgress.current : serverProgress;
+                  const timeMs = (p.stats?.timeElapsedSeconds || 0) * 1000;
 
-            return (
-              <div
-                key={p.id}
-                className={`flex justify-between items-center p-5 rounded-2xl border ${
-                  isLocal 
-                    ? "bg-cyan-500/10 border-cyan-500/30" 
-                    : "border-white/5 bg-white/5"
-                }`}
-              >
-                <div className="text-left">
-                  <div className="text-white font-bold flex items-center gap-2">
-                    {p.playerName || p.name}
-                    {isLocal && (
-                      <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">
-                        YOU
+                  return (
+                    <div
+                      key={p.id}
+                      className={`flex justify-between items-center p-5 rounded-2xl border ${
+                        isLocal 
+                          ? "bg-cyan-500/10 border-cyan-500/30" 
+                          : "border-white/5 bg-white/5"
+                      }`}
+                    >
+                      <div className="text-left">
+                        <div className="text-white font-bold flex items-center gap-2">
+                          {p.playerName || p.name}
+                          {isLocal && (
+                            <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">
+                              YOU
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
+                          <Clock size={10} /> {formatTimeResult(timeMs)}
+                        </div>
+                      </div>
+                      <span className="text-2xl font-mono font-black text-emerald-400">
+                        {Math.trunc(display)}%
                       </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
-                    <Clock size={10} /> {formatTimeResult(timeMs)}
-                  </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* NEW: Displays Correct Solution if backend sent a targetBoard */}
+            {privateGameData?.targetBoard && (
+              <div className="mb-8 p-4 bg-zinc-900/30 border border-zinc-800/80 rounded-3xl flex flex-col items-center">
+                <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Eye size={12} /> Correct Solution Matrix
+                </h3>
+                <div 
+                  className={`grid border-2 border-zinc-700 bg-zinc-950 p-1 rounded-xl
+                    ${size === 6 ? "grid-cols-6" : "grid-cols-9"}`}
+                >
+                  {privateGameData.targetBoard.map((row: number[], rIdx: number) =>
+                    row.map((cell: number, cIdx: number) => {
+                      const colBlock = size === 6 ? 3 : 3;
+                      const rowBlock = size === 6 ? 2 : 3;
+                      
+                      const bR = (cIdx + 1) % colBlock === 0 && cIdx !== size - 1 
+                        ? "border-r-2 border-zinc-700" 
+                        : "border-r border-zinc-900";
+                      const bB = (rIdx + 1) % rowBlock === 0 && rIdx !== size - 1 
+                        ? "border-b-2 border-zinc-700" 
+                        : "border-b border-zinc-900";
+
+                      const isInitialClue = currentInitialBoard?.[rIdx]?.[cIdx] !== 0;
+
+                      return (
+                        <div
+                          key={`target-${rIdx}-${cIdx}`}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-xs font-mono font-black ${bR} ${bB}`}
+                        >
+                          <span className={isInitialClue ? "text-zinc-600 font-medium" : "text-emerald-400"}>
+                            {cell}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                <span className="text-2xl font-mono font-black text-emerald-400">
-                  {Math.trunc(display)}%
-                </span>
               </div>
-            );
-          })}
-      </div>
-      <button
-        onClick={() => (window.location.href = "/")}
-        className="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-[10px] tracking-widest"
-      >
-        Exit to Lobby
-      </button>
-    </div>
-  </div>
-)}
+            )}
+
+            <button
+              onClick={() => (window.location.href = "/")}
+              className="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-[10px] tracking-widest active:scale-98 transition-all shadow-xl"
+            >
+              Exit to Lobby
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

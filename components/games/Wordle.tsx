@@ -5,7 +5,7 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import ResultModal, { formatTimeElapsed } from '../ResultModal';
 import { getSortedPlayers } from "@/utils/gameRules";
 
-const MAX_TRIES_PER_WORD = 12;
+const MAX_TRIES_PER_WORD = 6;
 
 const KEYBOARD = [
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -80,12 +80,11 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   const isGlobalFinished = cleanPublic?.status === "FINISHED" || publicGameData?.finished;
   const showResultModal = isGlobalFinished || isPlayerDone;
 
-  // Inside your game component
   const sortedPlayersForModal = useMemo(() => {
-    // Pass your current synchronizedPlayers and the game type
     return getSortedPlayers(synchronizedPlayers, "WORDLE");
   }, [synchronizedPlayers]);
-  // Live countdown ticker loop (only active if it is a timed mode)
+
+  // Live countdown ticker loop
   useEffect(() => {
     if (!isTimedMode || isGlobalFinished || isPlayerDone || localSecondsLeft <= 0) return;
 
@@ -102,6 +101,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
     return () => clearInterval(intervalId);
   }, [localSecondsLeft, isGlobalFinished, isPlayerDone, isTimedMode]);
 
+  // Fixed auto-scroll invocation target
   useEffect(() => {
     setCurrentGuess("");
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -121,7 +121,6 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   }, [wordError]);
 
   const handleAction = (key: string) => {
-    // Only lock action due to timer if the game mode explicitly runs a clock
     if (isGlobalFinished || isPlayerDone || isWordSolved || (isTimedMode && localSecondsLeft <= 0)) return;
 
     if (key === "ENTER") {
@@ -194,23 +193,27 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   return (
     <div className="flex flex-col h-full w-full max-w-2xl mx-auto bg-black text-white overflow-hidden font-sans justify-between">
       
-      {/* HEADER ROW STATS PANEL */}
-      <div className="p-6 border-b border-zinc-900 flex justify-between items-end bg-black">
+      {/* HEADER ROW STATS PANEL - Tightened padding & height parameters */}
+      <div className="py-2.5 px-4 border-b border-zinc-900 flex justify-between items-end bg-black shrink-0 select-none">
         <div>
-          <p className="text-zinc-500 font-mono text-[10px] tracking-[0.3em] uppercase mb-1">
-            {displayTargetLabel}
+          <p className="text-zinc-500 font-mono text-[9px] tracking-[0.3em] uppercase mb-0.5">
+            {myStatus === "FAILED" ? "DEFEAT" : displayTargetLabel}
           </p>
-          <h1 className="text-3xl font-black uppercase leading-none tracking-tight">
-            SOLVED: <span className="text-emerald-500">{solvedCount}</span>
-          </h1>
+          <h1 className="text-lg sm:text-xl font-black uppercase leading-none tracking-tight">
+    {myStatus === "FAILED" ? (
+      <span>WORD: <span className="text-rose-500 font-mono tracking-wider">{privateGameData?.targetWord || "XXXXX"}</span></span>
+    ) : (
+      <>SOLVED: <span className="text-emerald-500">{solvedCount}</span></>
+    )}
+  </h1>
         </div>
 
-        <div className="flex gap-10 items-end">
-          {/* RUSH COUNTDOWN DISPLAY BOX - ONLY RENDERED IF TIMED */}
+        <div className="flex gap-4 sm:gap-6 items-end">
+          {/* RUSH COUNTDOWN DISPLAY BOX */}
           {isTimedMode && (
-            <div className="text-right border-r border-zinc-800 pr-10">
-              <p className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider mb-1">RUSH TIME</p>
-              <p className={`text-2xl font-black font-mono leading-none transition-colors duration-300
+            <div className="text-right border-r border-zinc-900 pr-4 sm:pr-6">
+              <p className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider mb-0.5">RUSH TIME</p>
+              <p className={`text-lg font-black font-mono leading-none transition-colors duration-300
                 ${localSecondsLeft > 30 ? 'text-emerald-500' : 'text-rose-500 animate-pulse'}`}>
                 {renderDigitalClock(localSecondsLeft)}
               </p>
@@ -219,83 +222,111 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
 
           {/* CURRENT PANEL DISPLAY */}
           <div className="text-right">
-            <p className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider mb-1">CURRENT</p>
-            <p className="text-2xl font-bold text-cyan-400 leading-none">
-              {currentTryCount}<span className="text-zinc-600 text-sm font-normal">/{MAX_TRIES_PER_WORD}</span>
+            <p className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider mb-0.5">CURRENT</p>
+            <p className="text-lg font-bold text-cyan-400 leading-none">
+              {currentTryCount}<span className="text-zinc-600 text-xs font-normal">/{MAX_TRIES_PER_WORD}</span>
             </p>
           </div>
           
           {/* TOTAL TRIES PANEL DISPLAY */}
-          <div className="text-right border-l border-zinc-800 pl-10">
-            <p className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider mb-1">TOTAL TRIES</p>
-            <p className="text-2xl font-black text-white leading-none">
+          <div className="text-right border-l border-zinc-900 pl-4 sm:pl-6">
+            <p className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider mb-0.5">TOTAL TRIES</p>
+            <p className="text-lg font-black text-white leading-none">
               {totalTriesCount}
             </p>
           </div>
         </div>
       </div>
 
-      {/* MATRIX BOARD LAYOUT TILES */}
-      <div className="flex-grow overflow-y-auto p-4 flex flex-col items-center gap-3 no-scrollbar justify-start">
-        <AnimatePresence mode="wait">
-          <motion.div key={solvedCount} className="flex flex-col gap-2">
-            {attempts.map((att: any, i: number) => (
-              <div key={`row-${i}`} className="flex gap-2">
-                {(att.guess || "").split("").map((char: string, j: number) => (
-                  <motion.div 
-                    key={`${i}-${j}`}
-                    initial={{ rotateX: -90 }} animate={{ rotateX: 0 }}
-                    transition={{ delay: j * 0.05 }}
-                    className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center text-3xl font-black rounded-xl border-2 transition-colors
-                      ${att.result?.[j] === 'GREEN' ? 'bg-emerald-500 border-emerald-400 text-black' : 
-                        att.result?.[j] === 'YELLOW' ? 'bg-amber-500 border-amber-400 text-black' : 'bg-zinc-900/60 border-zinc-800 text-white'}`}
-                  >
-                    {char}
-                  </motion.div>
-                ))}
-              </div>
-            ))}
+      {/* MATRIX BOARD LAYOUT TILES - Fixed scrolling/fitting via modern layout scaling wrappers */}
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden select-none">
+        <div className="max-h-full flex flex-col justify-center items-center">
+          <AnimatePresence mode="wait">
+            <motion.div key={solvedCount} className="flex flex-col gap-1.5 sm:gap-2">
+              {Array.from({ length: MAX_TRIES_PER_WORD }).map((_, rowIndex) => {
+                // 1. Render historic submitted attempt rows
+                if (rowIndex < attempts.length) {
+                  const att = attempts[rowIndex];
+                  return (
+                    <div key={`row-${rowIndex}`} className="flex gap-1.5 sm:gap-2">
+                      {(att.guess || "").split("").map((char: string, j: number) => (
+                        <motion.div 
+                          key={`${rowIndex}-${j}`}
+                          initial={{ rotateX: -90 }} animate={{ rotateX: 0 }}
+                          transition={{ delay: j * 0.05 }}
+                          className={`w-[min(6.2vh,50px)] h-[min(6.2vh,50px)] min-[380px]:w-[min(6.6vh,54px)] min-[380px]:h-[min(6.6vh,54px)] sm:w-15 sm:h-15 md:w-16 md:h-16 flex items-center justify-center text-xl sm:text-2xl font-black rounded-xl border-2 transition-colors
+                            ${att.result?.[j] === 'GREEN' ? 'bg-emerald-500 border-emerald-400 text-black' : 
+                              att.result?.[j] === 'YELLOW' ? 'bg-amber-500 border-amber-400 text-black' : 'bg-zinc-900/60 border-zinc-800 text-white'}`}
+                        >
+                          {char}
+                        </motion.div>
+                      ))}
+                    </div>
+                  );
+                } 
+                
+                // 2. Render current user active typing row
+                if (rowIndex === attempts.length && !isPlayerDone && !isWordSolved && (!isTimedMode || localSecondsLeft > 0)) {
+                  return (
+                    <motion.div 
+                      key={`row-${rowIndex}`}
+                      variants={shakeVariants}
+                      animate={isShaking ? "shake" : "stable"}
+                      className="flex gap-1.5 sm:gap-2"
+                    >
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className={`w-[min(6.2vh,50px)] h-[min(6.2vh,50px)] min-[380px]:w-[min(6.6vh,54px)] min-[380px]:h-[min(6.6vh,54px)] sm:w-15 sm:h-15 md:w-16 md:h-16 flex items-center justify-center text-xl sm:text-2xl font-black rounded-xl border-2 transition-all
+                          ${currentGuess[i] ? 'border-zinc-400 scale-105 text-white bg-zinc-900/30' : 'border-zinc-900 text-transparent bg-transparent'}`}>
+                          {currentGuess[i] || ""}
+                        </div>
+                      ))}
+                    </motion.div>
+                  );
+                }
 
-            {/* Render input row if not done, not solved, and time hasn't run out (if timed) */}
-            {!isPlayerDone && !isWordSolved && (!isTimedMode || localSecondsLeft > 0) && (
-              <motion.div 
-                variants={shakeVariants}
-                animate={isShaking ? "shake" : "stable"}
-                className="flex gap-2"
-              >
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center text-3xl font-black rounded-xl border-2 transition-all
-                    ${currentGuess[i] ? 'border-zinc-400 scale-105 text-white' : 'border-zinc-800 text-transparent'}`}>
-                    {currentGuess[i] || ""}
+                // 3. Render empty future placeholder rows to secure full 6-row alignment space
+                return (
+                  <div key={`row-${rowIndex}`} className="flex gap-1.5 sm:gap-2 opacity-25">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="w-[min(6.2vh,50px)] h-[min(6.2vh,50px)] min-[380px]:w-[min(6.6vh,54px)] min-[380px]:h-[min(6.6vh,54px)] sm:w-15 sm:h-15 md:w-16 md:h-16 flex items-center justify-center rounded-xl border-2 border-zinc-900 bg-transparent" />
+                    ))}
                   </div>
-                ))}
-              </motion.div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
 
-        {isWordSolved && !isPlayerDone && (!isTimedMode || localSecondsLeft > 0) && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 flex flex-col items-center gap-3">
-             <button onClick={triggerNextPhase} className="px-8 py-3.5 bg-white text-black font-black rounded-xl uppercase tracking-wider text-xs hover:bg-emerald-500 transition-all active:scale-95">
-               Next Phase
-             </button>
-          </motion.div>
-        )}
+          {/* Action Condition Boxes */}
+          {isWordSolved && !isPlayerDone && (!isTimedMode || localSecondsLeft > 0) && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex flex-col items-center">
+               <button onClick={triggerNextPhase} className="px-6 py-2.5 bg-white text-black font-black rounded-xl uppercase tracking-wider text-[11px] hover:bg-emerald-500 transition-all active:scale-95 shadow-lg">
+                  Next Phase
+               </button>
+            </motion.div>
+          )}
 
-        {isTimedMode && localSecondsLeft <= 0 && !isGlobalFinished && !isPlayerDone && (
-          <div className="text-center text-rose-500 font-black uppercase text-sm mt-12 tracking-widest animate-pulse">
-            💥 Time is out! Waiting for arena calculations...
-          </div>
-        )}
+          {isTimedMode && localSecondsLeft <= 0 && !isGlobalFinished && !isPlayerDone && (
+            <div className="text-center text-rose-500 font-black uppercase text-[10px] mt-3 tracking-widest animate-pulse">
+              💥 Time is out! Waiting for calculations...
+            </div>
+          )}
+        </div>
+        
+        <div ref={bottomRef} className="h-1 w-full shrink-0" />
       </div>
 
-      {/* FOOTER KEYBOARD ROW */}
-      <div className={`p-4 bg-black border-t border-zinc-900 pb-8 shrink-0 ${isWordSolved || isPlayerDone || (isTimedMode && localSecondsLeft <= 0) ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
-        <div className="flex flex-col gap-2 max-w-lg mx-auto">
+      {/* FOOTER KEYBOARD ROW - Locked explicitly at the footer line with absolute constraints removed */}
+      <div className={`p-2 sm:p-4 bg-black border-t border-zinc-900 pb-4 sm:pb-6 shrink-0 ${isWordSolved || isPlayerDone || (isTimedMode && localSecondsLeft <= 0) ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+        <div className="flex flex-col gap-1.5 max-w-lg mx-auto">
           {KEYBOARD.map((row, i) => (
-            <div key={i} className="flex justify-center gap-1.5">
+            <div key={i} className="flex justify-center gap-1 sm:gap-1.5">
               {row.map(key => (
-                <button key={key} onClick={() => handleAction(key)} type="button" className={`h-14 rounded-xl font-black uppercase transition-all ${key.length > 1 ? 'px-3 text-[11px]' : 'flex-1'} ${getLetterStatus(key)}`}>
+                <button 
+                  key={key} 
+                  onClick={() => handleAction(key)} 
+                  type="button" 
+                  className={`h-11 sm:h-13 md:h-14 rounded-xl font-black uppercase transition-all text-xs sm:text-sm ${key.length > 1 ? 'px-2 sm:px-4 text-[10px] sm:text-[11px]' : 'flex-1'} ${getLetterStatus(key)}`}
+                >
                   {key}
                 </button>
               ))}
@@ -304,25 +335,27 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
         </div>
       </div>
 
-      <ResultModal 
-isOpen={showResultModal}
+{/* UPDATE IN WORDLE.TSX */}
+<ResultModal 
+  isOpen={showResultModal}
   players={sortedPlayersForModal}
   localPlayerName={playerName}
-  localPlayerId={playerId} // Pass the ID here
+  localPlayerId={playerId}
+  targetWord={privateGameData?.targetWord} // 👈 Pass the word
+  myStatus={myStatus}                     // 👈 Pass the fail/complete status
   renderStats={(p: any) => (
-          <div className="text-right">
-            <p className="text-white font-black">{p.score} Solved</p>
-            <p className="text-xs text-zinc-500">{p.stats?.tries || 0} Tries</p>
-            
-            {/* Only show time if NOT in time attack mode */}
-            {!isTimeAttack && p.stats?.timeElapsedSeconds && (
-              <p className="text-xs text-cyan-400 font-mono">
-                ⏱️ {formatTimeElapsed(p.stats.timeElapsedSeconds)}
-              </p>
-            )}
-          </div>
-        )}
-      />
+    <div className="text-right">
+      <p className="text-white font-black">{p.score} Solved</p>
+      <p className="text-xs text-zinc-500">{p.stats?.tries || 0} Tries</p>
+      
+      {!isTimeAttack && p.stats?.timeElapsedSeconds && (
+        <p className="text-xs text-cyan-400 font-mono">
+          ⏱️ {formatTimeElapsed(p.stats.timeElapsedSeconds)}
+        </p>
+      )}
+    </div>
+  )}
+/>
     </div>
   );
 }

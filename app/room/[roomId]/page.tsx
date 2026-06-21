@@ -28,7 +28,6 @@ export default function RoomPage() {
   const [wordError, setWordError] = useState<{ id: number; message: string } | null>(null);
   const stompClientRef = useRef<Client | null>(null);
 
-
   useEffect(() => {
     setPlayerName(Cookies.get("playerName") || null);
     setPlayerId(Cookies.get("playerId") || null);
@@ -63,19 +62,16 @@ export default function RoomPage() {
     return () => { client.deactivate().catch(() => {}); };
   }, [roomId, playerName, playerId]);
 
-  // Clean data parser for safe attribute reading
   const cleanPublic = useMemo(() => {
     if (!publicRoom) return null;
     return publicRoom.body ? JSON.parse(publicRoom.body) : publicRoom;
   }, [publicRoom]);
 
-  // Read active game architecture mode type (SUDOKU vs WORDLE)
   const resolvedGameType = useMemo(() => {
     if (!cleanPublic) return "WORDLE";
     return cleanPublic.type || cleanPublic.gameType || "WORDLE";
   }, [cleanPublic]);
 
-  // Dynamic extraction matching your backend remainingSeconds JSON payload schema
   const serverSecondsLeft = useMemo(() => {
     if (!cleanPublic) return 0;
     return (
@@ -87,28 +83,18 @@ export default function RoomPage() {
     );
   }, [cleanPublic]);
 
-  // Synchronize public and private data layers to fix score rendering lag
-const synchronizedPlayers = useMemo(() => {
-  // 1. Validate that the players array exists in the public data
-  if (!cleanPublic || !Array.isArray(cleanPublic.players)) {
-    console.warn("DEBUG: No players found in cleanPublic!");
-    return [];
-  }
+  const synchronizedPlayers = useMemo(() => {
+    if (!cleanPublic || !Array.isArray(cleanPublic.players)) {
+      console.warn("DEBUG: No players found in cleanPublic!");
+      return [];
+    }
+    return cleanPublic.players;
+  }, [cleanPublic]);
 
-  // 2. Return the players array directly. 
-  // No need to merge with privateData, as the score and stats 
-  // are now correctly provided in the public state.
-  return cleanPublic.players;
-}, [cleanPublic]);
-
-  // 1. Ensure sortedPlayers is robust
-    const sortedPlayers = useMemo(() => {
-      // If no players, return empty
-      if (!synchronizedPlayers || synchronizedPlayers.length === 0) return [];
-      
-      // Use your rule engine
-      return getSortedPlayers(synchronizedPlayers, resolvedGameType);
-    }, [synchronizedPlayers, resolvedGameType]);
+  const sortedPlayers = useMemo(() => {
+    if (!synchronizedPlayers || synchronizedPlayers.length === 0) return [];
+    return getSortedPlayers(synchronizedPlayers, resolvedGameType);
+  }, [synchronizedPlayers, resolvedGameType]);
 
   if (!playerName || !playerId || !connected || !cleanPublic) {
     return (
@@ -118,50 +104,58 @@ const synchronizedPlayers = useMemo(() => {
     );
   }
 
-  // Determine global match status 
   const currentStatus = cleanPublic?.status || "WAITING";
 
-  return (
-    <div className="flex flex-row h-screen bg-black text-white overflow-hidden font-sans w-full">
-      <main className="flex-grow relative flex flex-col items-stretch justify-start overflow-y-auto">
-        <div className="flex-grow flex items-center justify-center p-4 overflow-y-auto">
+// roomId/page.tsx
+
+return (
+  <div className="flex flex-row h-[100dvh] w-full bg-black text-white overflow-hidden font-sans select-none">
+    
+    {/* MAIN GAME ARENA CONTAINER */}
+    <main className="flex-grow relative flex flex-col items-stretch justify-between overflow-hidden pt-6"> 
+      
+      {/* GAME WRAPPER */}
+      <div className="flex-1 w-full flex flex-col items-stretch justify-center px-4 pb-4 overflow-hidden">
+        
+        {currentStatus === "WAITING" ? (
+          <WaitingRoom 
+            roomData={cleanPublic} 
+            currentPlayerId={playerId} 
+            stompClient={stompClientRef.current} 
+          />
+        ) : resolvedGameType === "SUDOKU" ? (
+          <Sudoku 
+            roomId={roomId as string}
+            playerName={playerName}
+            playerId={playerId!}
+            stompClient={stompClientRef.current!}
+            publicState={cleanPublic}
+            privateState={privateData?.body ? JSON.parse(privateData.body) : privateData}
+          />
+        ) : (
+        <div className="w-full h-full flex flex-col overflow-hidden">
+          <Wordle 
+            roomId={roomId as string}
+            playerName={playerName}
+            playerId={playerId!}
+            stompClient={stompClientRef.current!}
+            publicState={cleanPublic}
+            privateState={privateData}
+            wordError={wordError}
+            secondsLeft={serverSecondsLeft}
+            synchronizedPlayers={synchronizedPlayers}
+          />
+      </div>
           
-          {currentStatus === "WAITING" ? (
-            <WaitingRoom 
-              roomData={cleanPublic} 
-              currentPlayerId={playerId} 
-              stompClient={stompClientRef.current} 
-            />
-          ) : resolvedGameType === "SUDOKU" ? (
-            <Sudoku 
-              roomId={roomId as string}
-              playerName={playerName}
-              playerId={playerId!}
-              stompClient={stompClientRef.current!}
-              publicState={cleanPublic}
-              privateState={privateData?.body ? JSON.parse(privateData.body) : privateData}
-            />
-          ) : (
-            <Wordle 
-              roomId={roomId as string}
-              playerName={playerName}
-              playerId={playerId!}
-              stompClient={stompClientRef.current!}
-              publicState={cleanPublic}
-              privateState={privateData}
-              wordError={wordError}
-              secondsLeft={serverSecondsLeft}
-              synchronizedPlayers={synchronizedPlayers}
-            />
-          )}
+        )}
 
-        </div>
-      </main>
+      </div>
+    </main>
 
-      {/* RIGHT SIDEBAR LAYOUT CONTAINER */}
-      <aside className="w-80 border-l border-zinc-900 bg-black hidden lg:block overflow-y-auto shrink-0">
-        <Leaderboard scoreBoard={sortedPlayers} localPlayerId={playerId} gameType={resolvedGameType as "WORDLE" | "SUDOKU"} />
-      </aside>
-    </div>
-  );
+    {/* RIGHT SIDEBAR LAYOUT CONTAINER */}
+    <aside className="w-80 border-l border-zinc-900 bg-black hidden lg:block overflow-y-auto shrink-0">
+      <Leaderboard scoreBoard={sortedPlayers} localPlayerId={playerId} gameType={resolvedGameType as "WORDLE" | "SUDOKU"} />
+    </aside>
+  </div>
+);
 }
