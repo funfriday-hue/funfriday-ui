@@ -70,7 +70,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
     return rawStatus;
   }, [mySelf, cleanPublic]);
 
-  const totalPhases = cleanPublic?.configuration?.gameMode === "WORD_3" ? 3 : (gameModeType.split('_')[1] || 3);
+  const totalPhases = cleanPublic?.configuration?.gameMode === "WORD_3" ? 3 : cleanPublic?.configuration?.gameMode === "WORD_5" ? 5 : cleanPublic?.configuration?.gameMode === "WORD_10" ? 10 : 1000;
   const displayTargetLabel = `PHASE ${Math.min(solvedCount + 1, Number(totalPhases))} / ${totalPhases}`;
 
   const isWordSolved = attempts.length > 0 && 
