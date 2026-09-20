@@ -32,7 +32,10 @@ const FALLBACK_MODES: Record<string, GameModeOption[]> = {
     { modeId: "TRIPLE_HUNT", displayName: "Triple Hunt · 12 Rounds" }
   ],
   QUIZ_ROYALE: [
-    { modeId: "CRICKET", displayName: "Cricket · Random Question" }
+    { modeId: "CRICKET", displayName: "Cricket · Random Question" },
+    { modeId: "FOOTBALL", displayName: "Football · Random Question" },
+    { modeId: "BOLLYWOOD", displayName: "Bollywood · Random Question" },
+    { modeId: "WWE", displayName: "WWE · Random Question" }
   ]
 };
 
