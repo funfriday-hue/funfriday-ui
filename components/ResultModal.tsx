@@ -27,6 +27,7 @@ interface ResultModalProps<T> {
   isTimeAttack?: boolean; 
   targetWord?: string;
   myStatus?: any; 
+  children?: React.ReactNode;
 }
 
 // Broadened generic constraints to gracefully absorb both nested or flat player models
@@ -44,7 +45,8 @@ export default function ResultModal<T extends {
   localPlayerId,
   renderStats,
   isTimeAttack = false,
-  targetWord // 👈 Destructured targetWord
+  targetWord, // 👈 Destructured targetWord
+  children
 }: ResultModalProps<T>) {
 
   // Auto-detect if the local player failed from the incoming players data array
@@ -114,6 +116,8 @@ export default function ResultModal<T extends {
                 );
               })}
             </div>
+
+            {children}
 
             <button 
               onClick={() => window.location.href = '/'} 
