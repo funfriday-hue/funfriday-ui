@@ -8,6 +8,8 @@ import SockJS from "sockjs-client";
 
 import Wordle from "@/components/games/Wordle";
 import Sudoku from "@/components/games/Sudoku";
+import Dobble from "@/components/games/Dobble";
+import QuizRoyale from "@/components/games/QuizRoyale";
 import Leaderboard from "@/components/Leaderboard";
 import WaitingRoom from "@/components/WaitingRoom";
 import { getSortedPlayers } from "@/utils/gameRules";
@@ -109,13 +111,13 @@ export default function RoomPage() {
 // roomId/page.tsx
 
 return (
-  <div className="flex flex-row h-[100dvh] w-full bg-black text-white overflow-hidden font-sans select-none">
+  <div className={`flex w-full bg-black text-white font-sans select-none ${currentStatus === "WAITING" ? "min-h-[100dvh] overflow-y-auto" : "h-[100dvh] overflow-hidden"}`}>
     
     {/* MAIN GAME ARENA CONTAINER */}
-    <main className="flex-grow relative flex flex-col items-stretch justify-between overflow-hidden pt-6"> 
+    <main className={`relative flex-grow min-h-0 flex flex-col items-stretch justify-between pt-6 ${currentStatus === "WAITING" ? "overflow-visible" : "overflow-hidden"}`}> 
       
       {/* GAME WRAPPER */}
-      <div className="flex-1 w-full flex flex-col items-stretch justify-center px-4 pb-4 overflow-hidden">
+      <div className={`flex-1 min-h-0 w-full flex flex-col items-stretch px-4 pb-4 ${currentStatus === "WAITING" ? "justify-start overflow-visible" : "justify-center overflow-hidden"}`}>
         
         {currentStatus === "WAITING" ? (
           <WaitingRoom 
@@ -132,6 +134,19 @@ return (
             publicState={cleanPublic}
             privateState={privateData?.body ? JSON.parse(privateData.body) : privateData}
           />
+        ) : resolvedGameType === "DOBBLE" ? (
+          <Dobble
+            roomId={roomId as string}
+            playerName={playerName}
+            playerId={playerId!}
+            stompClient={stompClientRef.current!}
+            publicState={cleanPublic}
+            privateState={privateData?.body ? JSON.parse(privateData.body) : privateData}
+            synchronizedPlayers={synchronizedPlayers}
+            moveError={wordError}
+          />
+        ) : resolvedGameType === "QUIZ_ROYALE" ? (
+          <QuizRoyale roomId={roomId as string} playerId={playerId!} playerName={playerName} stompClient={stompClientRef.current!} publicState={cleanPublic} synchronizedPlayers={synchronizedPlayers} />
         ) : (
         <div className="w-full h-full flex flex-col overflow-hidden">
           <Wordle 
@@ -154,7 +169,7 @@ return (
 
     {/* RIGHT SIDEBAR LAYOUT CONTAINER */}
     <aside className="w-80 border-l border-zinc-900 bg-black hidden lg:block overflow-y-auto shrink-0">
-      <Leaderboard scoreBoard={sortedPlayers} localPlayerId={playerId} gameType={resolvedGameType as "WORDLE" | "SUDOKU"} />
+      <Leaderboard scoreBoard={sortedPlayers} localPlayerName={playerName} activePlayerId={cleanPublic?.gameSpecificPublicData?.currentPlayerId} gameType={resolvedGameType} />
     </aside>
   </div>
 );

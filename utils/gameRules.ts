@@ -1,4 +1,15 @@
-export const getSortedPlayers = (players: any[], gameType: string) => {
+type SortablePlayer = {
+  score?: number;
+  stats?: {
+    timeElapsedSeconds?: number;
+    tries?: number;
+    percentSolved?: number;
+    totalResponseTimeMillis?: number;
+    strikes?: number;
+  };
+};
+
+export const getSortedPlayers = <T extends SortablePlayer>(players: T[], gameType: string) => {
   return [...players].sort((a, b) => {
     // 1. Primary Sort: Higher Score (Solved count) - Universal for most games
     if ((b.score || 0) !== (a.score || 0)) {
@@ -16,6 +27,15 @@ export const getSortedPlayers = (players: any[], gameType: string) => {
     if (gameType === "SUDOKU") {
       // For Sudoku: Maybe completion percentage?
       return (b.stats?.percentSolved || 0) - (a.stats?.percentSolved || 0);
+    }
+
+    if (gameType === "DOBBLE") {
+      const timeDiff = (a.stats?.totalResponseTimeMillis || 0) - (b.stats?.totalResponseTimeMillis || 0);
+      return timeDiff;
+    }
+
+    if (gameType === "QUIZ_ROYALE") {
+      return (a.stats?.strikes || 0) - (b.stats?.strikes || 0);
     }
 
     return 0;

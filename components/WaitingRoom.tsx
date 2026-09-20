@@ -26,6 +26,13 @@ const FALLBACK_MODES: Record<string, GameModeOption[]> = {
   SUDOKU: [
     { modeId: "SUDOKU_9X9", displayName: "9x9 Classic Sudoku" },
     { modeId: "SUDOKU_6X6", displayName: "6x6 Mini Sudoku" }
+  ],
+  DOBBLE: [
+    { modeId: "PAIR_RUSH", displayName: "Pair Rush · 25 Rounds" },
+    { modeId: "TRIPLE_HUNT", displayName: "Triple Hunt · 12 Rounds" }
+  ],
+  QUIZ_ROYALE: [
+    { modeId: "CRICKET", displayName: "Cricket · Random Question" }
   ]
 };
 
@@ -36,6 +43,9 @@ export default function WaitingRoom({
 }: WaitingRoomProps) {
   
   const [selectedModeId, setSelectedModeId] = useState<string>("");
+  const [strikeLimit, setStrikeLimit] = useState(2);
+  const [quizPlayMode, setQuizPlayMode] = useState<"ALL_PLAY" | "ROUND_ROBIN">("ROUND_ROBIN");
+  const [turnSeconds, setTurnSeconds] = useState(60);
   const [copied, setCopied] = useState(false);
 
   // Safely grab the room payload root
@@ -91,7 +101,7 @@ export default function WaitingRoom({
       destination: `/app/game/${roomId}/start`,
       body: JSON.stringify({
         gameMode: selectedModeId,
-        genericProperties: {}
+        genericProperties: roomType === "QUIZ_ROYALE" ? { strikeLimit, playMode: quizPlayMode, turnSeconds } : {}
       })
     });
   };
@@ -105,7 +115,7 @@ export default function WaitingRoom({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-white p-4 font-sans">
+    <div className="min-h-full w-full flex flex-col items-center justify-start py-6 px-4 text-white font-sans">
       <div className="bg-zinc-950 border border-zinc-800 rounded-[40px] p-8 md:p-12 w-full max-w-xl shadow-2xl text-center relative overflow-hidden">
         
         <header className="relative z-10">
@@ -154,6 +164,34 @@ export default function WaitingRoom({
                 })}
               </div>
             </div>
+
+            {roomType === "QUIZ_ROYALE" && (
+              <div className="mt-5 border-t border-white/5 pt-4 space-y-5">
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-black mb-2">Play mode</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setQuizPlayMode("ALL_PLAY")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ALL_PLAY" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>All Play</button>
+                    <button type="button" onClick={() => setQuizPlayMode("ROUND_ROBIN")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ROUND_ROBIN" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>Round Robin</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-black mb-2">Strikes before elimination</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((count) => (
+                    <button key={count} type="button" onClick={() => setStrikeLimit(count)} className={`h-10 w-10 rounded-xl border text-xs font-black transition-all ${strikeLimit === count ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>{count}</button>
+                  ))}
+                </div>
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-black mb-2">Answer time</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[10, 30, 60, 300].map((seconds) => (
+                      <button key={seconds} type="button" onClick={() => setTurnSeconds(seconds)} className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${turnSeconds === seconds ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>{seconds === 300 ? "5 min" : `${seconds}s`}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -32,6 +32,18 @@ const GAMES = [
       scoring: "The first person to reach 100% accuracy wins. If you 'Give Up', your final progress is locked based on your last synced board."
     }
   },
+  {
+    id: "quiz_royale",
+    name: "Quiz Royale",
+    icon: "👑",
+    detail: "Name unique answers before the clock or your strikes run out.",
+    active: true,
+    instructions: {
+      howToPlay: "The host selects a timer (10 seconds, 30 seconds, 60 seconds, or 5 minutes) and a strike limit from 1 to 5. Name a valid answer from the displayed list question; accepted answers appear for everyone and cannot be repeated. Chronology questions, when available, require the next answer for the displayed year in sequence.",
+      multiplayer: "All Play: every active player can submit distinct answers at the same time. A wrong answer gives that player a strike; when a time window expires, players who did not submit a correct answer in that window receive a strike. Round Robin: only the named player may answer. A wrong answer shows feedback but does not change the timer or give a strike; a timeout gives a strike and advances to the next eligible player. A correct answer advances the turn and resets the configured timer. Once a player reaches the strike limit, they are eliminated and skipped for all future turns.",
+      scoring: "Each accepted answer earns 1 point. The game finishes when all answers are found, or when every player has exhausted their strikes. Final standings rank higher points first; players tied on points are ranked by fewer strikes."
+    }
+  },
 ];
 
 export default function HomePage() {
@@ -133,7 +145,7 @@ export default function HomePage() {
 
       {/* GAME GRID */}
       <main className="flex-grow flex flex-col items-center px-6 pb-20">
-        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-12 mb-16 justify-center">
+        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 justify-center">
           {GAMES.map((game) => (
             <div 
               key={game.id} 
@@ -198,7 +210,7 @@ export default function HomePage() {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} 
               animate={{ scale: 1, y: 0 }} 
-              className="bg-zinc-950 border border-zinc-800 p-8 md:p-12 rounded-[3rem] w-full max-w-2xl shadow-2xl relative"
+              className="relative max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-[3rem] border border-zinc-800 bg-zinc-950 p-8 shadow-2xl md:p-12"
             >
                <button onClick={() => setShowInfo(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors">
                 <X size={24} />
