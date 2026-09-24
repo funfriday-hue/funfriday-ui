@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { Users, ArrowRight, Sliders, Copy, Check } from "lucide-react";
+import { Users, ArrowRight, Sliders, Copy, Check, Info, X } from "lucide-react";
 
 interface GameModeOption {
   modeId: string;
@@ -109,6 +109,15 @@ export default function WaitingRoom({
     });
   };
 
+  const handleKickPlayer = (playerId: string, playerName: string) => {
+    if (!amIActuallyHost || !stompClient || !roomId) return;
+    if (!window.confirm(`Remove ${playerName} from this room?`)) return;
+    stompClient.publish({
+      destination: `/app/game/${roomId}/kick`,
+      body: JSON.stringify({ playerId }),
+    });
+  };
+
   if (!actualRoom || (!roomType && roomId === "")) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-zinc-500 font-mono text-xs uppercase tracking-[0.3em] animate-pulse">
@@ -173,8 +182,12 @@ export default function WaitingRoom({
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-black mb-2">Play mode</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setQuizPlayMode("ALL_PLAY")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ALL_PLAY" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>All Play</button>
-                    <button type="button" onClick={() => setQuizPlayMode("ROUND_ROBIN")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ROUND_ROBIN" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>Round Robin</button>
+                    <button type="button" onClick={() => setQuizPlayMode("ALL_PLAY")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ALL_PLAY" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>
+                      <span className="flex items-center justify-center gap-1.5"><span className="group/info relative inline-flex"><Info size={12} aria-label="About All Play" /><span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-52 -translate-x-1/2 rounded-lg border border-white/10 bg-black px-3 py-2 text-left text-[10px] font-medium normal-case tracking-normal text-zinc-200 shadow-xl group-hover/info:block">Everyone can submit answers at the same time. A wrong answer or timeout gives that player a strike.</span></span>All Play</span>
+                    </button>
+                    <button type="button" onClick={() => setQuizPlayMode("ROUND_ROBIN")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ROUND_ROBIN" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>
+                      <span className="flex items-center justify-center gap-1.5"><span className="group/info relative inline-flex"><Info size={12} aria-label="About Round Robin" /><span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-52 -translate-x-1/2 rounded-lg border border-white/10 bg-black px-3 py-2 text-left text-[10px] font-medium normal-case tracking-normal text-zinc-200 shadow-xl group-hover/info:block">Players answer one at a time in order. A wrong answer, pass, or timeout gives the active player a strike.</span></span>Round Robin</span>
+                    </button>
                   </div>
                 </div>
                 <div>
@@ -214,6 +227,7 @@ export default function WaitingRoom({
               
               const isThisPlayerHost = pId === hostId || player.host === true || player.isHost === true;
               const displayName = player.playerName || player.name || "Joining...";
+              const isConnected = player.connected !== false;
 
               return (
                 <div 
@@ -222,17 +236,25 @@ export default function WaitingRoom({
                     ${isThisPlayerHost ? "border-cyan-500/20 bg-cyan-500/5" : "border-zinc-800/40"}
                     ${isMe ? "ring-1 ring-white/5" : ""}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-1.5 h-1.5 rounded-full ${isThisPlayerHost ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'bg-zinc-700'}`} />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className={`w-1.5 h-1.5 shrink-0 rounded-full ${isConnected ? (isThisPlayerHost ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'bg-zinc-700') : 'bg-rose-400'}`} />
+                    {!isConnected && <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-rose-300">Not connected</span>}
                     <span className="font-black text-xs uppercase tracking-wide text-zinc-300 group-hover:text-cyan-400 transition-colors">
                       {displayName} {isMe && <span className="text-[10px] text-zinc-500 lowercase italic ml-1">(you)</span>}
                     </span>
                   </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                  {amIActuallyHost && !isThisPlayerHost && (
+                    <button type="button" onClick={() => handleKickPlayer(pId, displayName)} className="rounded-md border border-rose-400/30 p-1 text-rose-300 transition-colors hover:bg-rose-400/10" title={`Remove ${displayName}`} aria-label={`Remove ${displayName}`}>
+                      <X size={12} />
+                    </button>
+                  )}
                   {isThisPlayerHost && (
                     <div className="flex items-center gap-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-md">
                       <span className="text-[8px] font-black uppercase tracking-wider">Host</span>
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}

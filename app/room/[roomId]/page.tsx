@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
@@ -20,6 +20,7 @@ const SOCKET_URL = typeof window !== "undefined" && window.location.hostname !==
 
 export default function RoomPage() {
   const { roomId } = useParams();
+  const router = useRouter();
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   
@@ -52,6 +53,11 @@ export default function RoomPage() {
         });
 
         client.subscribe(`/topic/room/${roomId}/player/${playerId}/errors`, (msg) => {
+          if (msg.body === "KICKED_FROM_ROOM") {
+            client.deactivate().catch(() => {});
+            router.replace("/");
+            return;
+          }
           setWordError({ id: Date.now(), message: msg.body });
         });
 

@@ -134,13 +134,26 @@ export default function QuestionReviewPage({ mode }: { mode: Mode }) {
   };
 
   const draftAction = async (questionId: number, action: "approve" | "decline") => {
+    let declineReason: string | null = null;
+    if (action === "decline") {
+      declineReason = window.prompt("Why are you declining this draft? This feedback will guide future questions in the same category.");
+      if (declineReason === null) return;
+      if (!declineReason.trim()) {
+        setMessage("A decline reason is required.");
+        return;
+      }
+    }
     setLoading(true);
     setMessage("");
     try {
-      const response = await fetch(`${apiBase()}/admin/drafts/${questionId}/${action}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${apiBase()}/admin/drafts/${questionId}/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, ...(action === "decline" ? { "Content-Type": "application/json" } : {}) },
+        ...(action === "decline" ? { body: JSON.stringify({ reason: declineReason }) } : {}),
+      });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || `Unable to ${action} draft.`);
-      setMessage(action === "approve" ? "Draft approved and activated." : "Draft declined and removed.");
+      setMessage(action === "approve" ? "Draft approved and activated." : "Draft declined; feedback saved for future generation.");
       await loadQuestions();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `Unable to ${action} draft.`);

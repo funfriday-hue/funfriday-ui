@@ -6,19 +6,20 @@ import ResultModal from "../ResultModal";
 import { getSortedPlayers } from "../../utils/gameRules";
 
 type StompClient = { publish: (message: { destination: string; body: string }) => void };
-type Player = { id: string; name: string; score: number; status: string; stats?: { strikes?: number; correctAnswers?: number } };
+type Player = { id: string; name: string; score: number; status: string; connected?: boolean; stats?: { strikes?: number; correctAnswers?: number } };
 type GameData = { question?: string; category?: string; questionType?: "LIST" | "CHRONOLOGY"; playMode?: "ALL_PLAY" | "ROUND_ROBIN"; acceptedAnswers?: string[]; totalAnswerCount?: number; allAnswers?: string[]; allAnswerHints?: (string | null)[]; answeredAnswerIndexes?: number[]; currentPlayerId?: string; timeoutCoordinatorId?: string; allPlayAnsweredPlayerIds?: string[]; chronologyPassedPlayerIds?: string[]; turnStartedAtMillis?: number; turnSeconds?: number; strikeLimit?: number; lastEvent?: string; chronologyHint?: string; finished?: boolean };
 
 export default function QuizRoyale({ roomId, playerId, playerName, stompClient, publicState, synchronizedPlayers }: { roomId: string; playerId: string; playerName: string; stompClient: StompClient; publicState: unknown; synchronizedPlayers: Player[] }) {
   const [answer, setAnswer] = useState("");
   const [now, setNow] = useState(0);
-  const state = publicState as { status?: string; gameSpecificPublicData?: GameData };
+  const state = publicState as { status?: string; host?: { id?: string }; gameSpecificPublicData?: GameData };
   const data = state?.gameSpecificPublicData || {};
   const isAllPlay = data.playMode === "ALL_PLAY";
   const localPlayer = synchronizedPlayers.find(player => player.id === playerId);
   const isMyTurn = isAllPlay ? localPlayer?.status === "ACTIVE" : data.currentPlayerId === playerId;
   const activePlayer = synchronizedPlayers.find(player => player.id === data.currentPlayerId);
   const isFinished = state.status === "FINISHED" || Boolean(data.finished);
+  const isHost = state.host?.id === playerId;
   const hasPassedCurrentChronologyItem = Boolean(data.chronologyPassedPlayerIds?.includes(playerId));
   const acceptedAnswerCount = data.acceptedAnswers?.length || 0;
   const acceptedAnswerCountRef = useRef(acceptedAnswerCount);
@@ -49,7 +50,7 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
     event.preventDefault();
     if (!answer.trim() || !isMyTurn || isFinished) return;
     stompClient.publish({ destination: `/app/game/${roomId}/move`, body: JSON.stringify({ type: "QUIZ_ANSWER", answer: answer.trim() }) });
-    if (isAllPlay) setAnswer("");
+    setAnswer("");
   };
   const passTurn = () => {
     if (!isMyTurn || isFinished || data.questionType !== "CHRONOLOGY" && isAllPlay) return;
@@ -65,7 +66,7 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
       {data.lastEvent && <p className="mt-5 text-center text-sm font-bold text-zinc-400">{data.lastEvent}</p>}
     </section>
     <aside className="flex max-h-[420px] flex-col rounded-[2rem] border border-white/10 bg-zinc-950 p-5"><div className="flex items-center justify-between gap-3"><h2 className="text-[10px] font-mono uppercase tracking-[.3em] text-zinc-500">Answers found</h2>{data.questionType === "LIST" && typeof data.totalAnswerCount === "number" && <span className="shrink-0 font-mono text-xs font-bold text-cyan-300">{acceptedAnswerCount}/{data.totalAnswerCount}</span>}</div><div ref={answersListRef} className="mt-4 min-h-0 space-y-3 overflow-y-auto pr-2">{(data.acceptedAnswers || []).map((accepted, index) => <p key={`${index}-${accepted}`} className="text-sm font-semibold text-white">{index + 1}. {accepted}</p>)}{!(data.acceptedAnswers || []).length && <p className="text-sm text-zinc-600">No accepted answers yet.</p>}</div></aside>
-  </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} renderStats={player => <div><p className="font-black text-cyan-300">{player.score} points</p><p className="text-xs text-zinc-500">{player.stats?.strikes || 0}/{data.strikeLimit || 3} strikes</p></div>}>
+  </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined} restartLabel="Restart" renderStats={player => <div><p className="font-black text-cyan-300">{player.score} points</p><p className="text-xs text-zinc-500">{player.stats?.strikes || 0}/{data.strikeLimit || 3} strikes</p></div>}>
     <div className="mb-6 rounded-2xl border border-white/10 bg-white/[.03] p-4">
       <div className="mb-3 flex items-center justify-between gap-3"><p className="text-[10px] font-mono font-bold uppercase tracking-[.22em] text-zinc-500">Answer review</p><p className="text-[10px] font-bold text-zinc-500">Green: answered · Red: missed</p></div>
       <div className="max-h-48 space-y-2 overflow-y-auto pr-2">

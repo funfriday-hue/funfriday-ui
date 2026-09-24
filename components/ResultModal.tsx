@@ -28,6 +28,8 @@ interface ResultModalProps<T> {
   targetWord?: string;
   myStatus?: any; 
   children?: React.ReactNode;
+  onRestart?: () => void;
+  restartLabel?: string;
 }
 
 // Broadened generic constraints to gracefully absorb both nested or flat player models
@@ -46,7 +48,9 @@ export default function ResultModal<T extends {
   renderStats,
   isTimeAttack = false,
   targetWord, // 👈 Destructured targetWord
-  children
+  children,
+  onRestart,
+  restartLabel = "Restart match"
 }: ResultModalProps<T>) {
 
   // Auto-detect if the local player failed from the incoming players data array
@@ -119,11 +123,20 @@ export default function ResultModal<T extends {
 
             {children}
 
+            {onRestart && (
+              <button
+                onClick={onRestart}
+                className="mb-3 w-full rounded-xl bg-cyan-400 py-4 text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-cyan-300"
+              >
+                {restartLabel}
+              </button>
+            )}
+
             <button 
               onClick={() => window.location.href = '/'} 
               className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm"
             >
-              Return to Lobby
+              Return to Home
             </button>
           </motion.div>
         </div>
