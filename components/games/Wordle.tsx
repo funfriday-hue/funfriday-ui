@@ -28,6 +28,7 @@ interface WordleProps {
 export default function Wordle({ roomId, playerName, playerId, stompClient, publicState, privateState, wordError, secondsLeft, synchronizedPlayers }: WordleProps) {
   const [currentGuess, setCurrentGuess] = useState("");
   const [isShaking, setIsShaking] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Parse clean states
@@ -42,6 +43,8 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   }, [privateState]);
 
   const publicGameData = cleanPublic?.gameSpecificPublicData || {};
+  const isStarting = Number(publicGameData?.playStartsAtMillis || 0) > now;
+  const startingSeconds = Math.max(0, Math.ceil((Number(publicGameData?.playStartsAtMillis || 0) - now) / 1000));
   const privateGameData = cleanPrivate?.privateGameData || {};
   
   const attempts = privateGameData?.playerAttempts || privateGameData?.attempts || [];
@@ -55,6 +58,10 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   useEffect(() => {
     setLocalSecondsLeft(secondsLeft);
   }, [secondsLeft]);
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const mySelf = useMemo(() => {
     const baseSelf = cleanPrivate?.self || (synchronizedPlayers || []).find((p: any) => String(p.id) === String(playerId)) || {};
@@ -121,7 +128,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   }, [wordError]);
 
   const handleAction = (key: string) => {
-    if (isGlobalFinished || isPlayerDone || isWordSolved || (isTimedMode && localSecondsLeft <= 0)) return;
+    if (isStarting || isGlobalFinished || isPlayerDone || isWordSolved || (isTimedMode && localSecondsLeft <= 0)) return;
 
     if (key === "ENTER") {
       if (currentGuess.length === 5) {
@@ -154,7 +161,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentGuess, isGlobalFinished, isPlayerDone, isWordSolved, localSecondsLeft, isTimedMode]);
+  }, [currentGuess, isStarting, isGlobalFinished, isPlayerDone, isWordSolved, localSecondsLeft, isTimedMode]);
 
   const getLetterStatus = (letter: string) => {
     let rank = 0; 
@@ -191,7 +198,8 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-2xl mx-auto bg-black text-white overflow-hidden font-sans justify-between">
+    <div className="relative flex flex-col h-full w-full max-w-2xl mx-auto bg-black text-white overflow-hidden font-sans justify-between">
+      {isStarting && <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/90 p-6 text-center"><motion.div initial={{ opacity: 0, scale: .97 }} animate={{ opacity: 1, scale: 1 }} className="w-full rounded-3xl border border-cyan-400/30 bg-cyan-400/10 p-8"><p className="font-mono text-xs uppercase tracking-[.4em] text-cyan-300">Starting Wordle Rush</p><p className="mt-5 text-sm font-mono uppercase tracking-[.3em] text-zinc-300">Begins in</p><p className="mt-1 text-6xl font-black text-cyan-300">{startingSeconds}</p></motion.div></div>}
       
       {/* HEADER ROW STATS PANEL - Tightened padding & height parameters */}
       <div className="py-2.5 px-4 border-b border-zinc-900 flex justify-between items-end bg-black shrink-0 select-none">

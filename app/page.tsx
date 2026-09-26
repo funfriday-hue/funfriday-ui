@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link"; 
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
-import { Info, X, Users, Trophy, Target } from "lucide-react";
+import { X, Users, Trophy, Target } from "lucide-react";
 
-const GAMES = [
+const BRAIN_ARCADE_GAMES = [
   { 
     id: "wordle", 
     name: "Wordle Rush", 
@@ -32,19 +32,27 @@ const GAMES = [
       scoring: "The first person to reach 100% accuracy wins. If you 'Give Up', your final progress is locked based on your last synced board."
     }
   },
-  {
-    id: "quiz_royale",
-    name: "Quiz Royale",
-    icon: "👑",
-    detail: "Name unique answers before the clock or your strikes run out.",
-    active: true,
-    instructions: {
-      howToPlay: "The host selects a timer (10 seconds, 30 seconds, 60 seconds, or 5 minutes) and a strike limit from 1 to 5. Name a valid answer from the displayed list question; accepted answers appear for everyone and cannot be repeated. Chronology questions, when available, require the next answer for the displayed year in sequence.",
-      multiplayer: "All Play: every active player can submit distinct answers at the same time. A wrong answer gives that player a strike; when a time window expires, players who did not submit a correct answer in that window receive a strike. Round Robin: only the named player may answer. A wrong answer shows feedback but does not change the timer or give a strike; a timeout gives a strike and advances to the next eligible player. A correct answer advances the turn and resets the configured timer. Once a player reaches the strike limit, they are eliminated and skipped for all future turns.",
-      scoring: "Each accepted answer earns 1 point. The game finishes when all answers are found, or when every player has exhausted their strikes. Final standings rank higher points first; players tied on points are ranked by fewer strikes."
-    }
-  },
 ];
+
+const QUIZ_CATEGORIES = [
+  { id: "CRICKET", name: "Cricket", icon: "🏏" },
+  { id: "FOOTBALL", name: "Football", icon: "⚽" },
+  { id: "BOLLYWOOD", name: "Bollywood", icon: "🎬" },
+  { id: "WWE", name: "WWE", icon: "🤼" },
+];
+
+const QUIZ_ROYALE_GUIDE = {
+  id: "quiz_royale_guide",
+  name: "Quiz Royale",
+  icon: "👑",
+  detail: "Name unique answers before the clock or your strikes run out.",
+  active: true,
+  instructions: {
+    howToPlay: "Choose a category, then the host selects 1, 2, or 3 questions, a timer, and a strike limit. List questions accept unique answers. Chronology questions require the next answer for the shown hint in sequence.",
+    multiplayer: "All Play lets everyone submit at once. Round Robin gives one player the turn at a time. A wrong answer, pass, or timeout costs a strike. Reaching the limit eliminates a player only for the current question; everyone gets fresh strikes on the next question.",
+    scoring: "Each accepted answer earns 1 point. Points carry across all selected questions. Final standings rank higher points first, then fewer strikes on the final question."
+  }
+};
 
 export default function HomePage() {
   const router = useRouter();
@@ -53,10 +61,10 @@ export default function HomePage() {
   const [roomInput, setRoomInput] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showInfo, setShowInfo] = useState<null | typeof GAMES[0]>(null);
-  const [flippedCard, setFlippedCard] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState<null | typeof BRAIN_ARCADE_GAMES[0] | typeof QUIZ_ROYALE_GUIDE>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState<string>("wordle");
+  const [selectedQuizCategory, setSelectedQuizCategory] = useState<string>("CRICKET");
 
   useEffect(() => {
     const savedName = Cookies.get("playerName");
@@ -68,8 +76,9 @@ export default function HomePage() {
     setShowModal(true);
   };
 
-  const triggerCreateFlow = (gameId: string) => {
+  const triggerCreateFlow = (gameId: string, quizCategory?: string) => {
     setSelectedGame(gameId);
+    if (quizCategory) setSelectedQuizCategory(quizCategory);
     setIsJoining(false);
     setShowModal(true);
   };
@@ -93,7 +102,7 @@ export default function HomePage() {
         : `${baseApiUrl}/rooms/join/${roomInput.trim().toUpperCase()}`;
 
       const payload = type === "START" 
-        ? { type: selectedGame.toUpperCase(), host: name.trim() }
+        ? { type: selectedGame.toUpperCase(), host: name.trim(), ...(selectedGame === "quiz_royale" ? { gameMode: selectedQuizCategory } : {}) }
         : { playerName: name.trim() };
 
       const response = await fetch(endpoint, {
@@ -121,7 +130,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col font-sans overflow-x-hidden">
       
       {/* HEADER */}
-      <header className="py-20 px-6 text-center">
+      <header className="px-6 pb-4 pt-20 text-center">
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -143,59 +152,33 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* GAME GRID */}
+      {/* QUIZ ROYALE */}
       <main className="flex-grow flex flex-col items-center px-6 pb-20">
-        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 justify-center">
-          {GAMES.map((game) => (
-            <div 
+        <section className="w-full max-w-6xl mb-16">
+          <div className="mb-7 text-center"><p className="font-mono text-[10px] uppercase tracking-[.4em] text-cyan-400">Quiz Royale</p><h2 className="mt-2 text-3xl font-black uppercase">Pick a category</h2><button type="button" onClick={() => setShowInfo(QUIZ_ROYALE_GUIDE)} className="mt-3 text-[10px] font-black uppercase tracking-widest text-cyan-300 underline decoration-cyan-400/50 underline-offset-4 hover:text-white">How to play</button></div>
+          <div className="mx-auto flex w-full max-w-6xl flex-nowrap justify-center gap-5 overflow-x-auto pb-2">
+            {QUIZ_CATEGORIES.map((category) => (
+              <button key={category.id} type="button" onClick={() => triggerCreateFlow("quiz_royale", category.id)} className="size-48 shrink-0 sm:size-52 rounded-[2rem] border border-white/10 bg-zinc-900 p-4 text-center text-xl font-black uppercase tracking-wide transition-colors hover:border-cyan-400 hover:bg-cyan-400/10 hover:text-cyan-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+                <span className="block text-3xl">{category.icon}</span><span className="mt-4 block">{category.name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="w-full max-w-6xl border-t border-white/10 pt-12">
+          <div className="mb-7 text-center"><p className="font-mono text-[10px] uppercase tracking-[.4em] text-fuchsia-300">Brain Arcade</p><h2 className="mt-2 text-3xl font-black uppercase">Words and logic</h2></div>
+          <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-5">
+          {BRAIN_ARCADE_GAMES.map((game) => (
+            <div
               key={game.id} 
-              className="relative h-80 w-full max-w-sm mx-auto perspective-1000 group"
-              onMouseEnter={() => setFlippedCard(game.id)}
-              onMouseLeave={() => setFlippedCard(null)}
+              className="size-48 sm:size-52 rounded-[2rem] border border-white/10 bg-zinc-900 p-4 text-center transition-all hover:-translate-y-1 hover:border-cyan-400/60 hover:bg-cyan-400/10"
             >
-              <motion.div
-                animate={{ rotateY: flippedCard === game.id ? 180 : 0 }}
-                transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
-                className="relative w-full h-full preserve-3d cursor-pointer"
-              >
-                {/* FRONT OF CARD */}
-                <div className="absolute inset-0 backface-hidden bg-zinc-900 border border-white/10 group-hover:border-cyan-500/50 rounded-[3rem] flex flex-col items-center justify-center p-8 shadow-2xl transition-colors duration-300">
-                  <div className="text-7xl mb-6 filter drop-shadow-lg">{game.icon}</div>
-                  <h3 className="text-3xl font-black uppercase tracking-widest group-hover:text-cyan-400 transition-colors">{game.name}</h3>
-                  {!game.active && <span className="mt-2 text-[8px] font-mono text-zinc-500">OFFLINE</span>}
-                  <div className="absolute -inset-px bg-gradient-to-b from-white/5 to-transparent rounded-[3rem] pointer-events-none" />
-                </div>
-
-                {/* BACK OF CARD */}
-                <div className="absolute inset-0 backface-hidden bg-cyan-500 rounded-[3rem] flex flex-col items-center justify-center p-10 text-black rotate-y-180 shadow-[0_0_40px_rgba(6,182,212,0.3)]">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowInfo(game);
-                    }}
-                    className="absolute top-6 right-8 p-2 rounded-full bg-black/10 border border-black/10 hover:bg-black hover:text-white transition-all"
-                    title="View Instructions"
-                  >
-                    <Info size={20} />
-                  </button>
-
-                  <p className="text-center font-bold text-lg leading-tight mb-8">{game.detail}</p>
-                  
-                  {game.active ? (
-                    <button 
-                      onClick={() => triggerCreateFlow(game.id)}
-                      className="bg-black text-white px-8 py-4 rounded-full font-black uppercase text-xs tracking-widest hover:scale-105 transition-transform shadow-xl"
-                    >
-                      Initialize {game.name}
-                    </button>
-                  ) : (
-                    <span className="font-black opacity-30">ENCRYPTED</span>
-                  )}
-                </div>
-              </motion.div>
+              <button type="button" onClick={() => triggerCreateFlow(game.id)} className="flex w-full flex-col items-center"><span className="block text-3xl">{game.icon}</span><h3 className="mt-4 text-lg font-black uppercase tracking-wide">{game.name}</h3></button>
+              <button type="button" onClick={() => setShowInfo(game)} className="mt-4 text-[10px] font-black uppercase tracking-widest text-cyan-300 underline decoration-cyan-400/50 underline-offset-4 hover:text-white">How to play</button>
             </div>
           ))}
-        </div>
+          </div>
+        </section>
       </main>
 
       {/* INSTRUCTION MODAL */}
@@ -278,7 +261,7 @@ export default function HomePage() {
               </button>
 
               <h2 className="text-zinc-500 font-mono text-[10px] uppercase tracking-[0.4em] mb-6 text-center">
-                {isJoining ? "Sector Ingress" : `Identity Verification: ${selectedGame.toUpperCase()}`}
+                {isJoining ? "Sector Ingress" : `Identity Verification: ${selectedGame === "quiz_royale" ? `Quiz Royale · ${selectedQuizCategory}` : selectedGame.toUpperCase()}`}
               </h2>
               
               <div className="space-y-6">

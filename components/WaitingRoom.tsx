@@ -49,6 +49,7 @@ export default function WaitingRoom({
   const [strikeLimit, setStrikeLimit] = useState(2);
   const [quizPlayMode, setQuizPlayMode] = useState<"ALL_PLAY" | "ROUND_ROBIN">("ROUND_ROBIN");
   const [turnSeconds, setTurnSeconds] = useState(60);
+  const [questionCount, setQuestionCount] = useState(1);
   const [copied, setCopied] = useState(false);
 
   // Safely grab the room payload root
@@ -85,10 +86,14 @@ export default function WaitingRoom({
   const playerCount = playersArray.length;
 
   useEffect(() => {
+    if (roomType === "QUIZ_ROYALE" && actualRoom?.initialGameMode) {
+      setSelectedModeId(String(actualRoom.initialGameMode).toUpperCase());
+      return;
+    }
     if (modes.length > 0 && !selectedModeId) {
       setSelectedModeId(modes[0].modeId);
     }
-  }, [modes, selectedModeId]);
+  }, [actualRoom?.initialGameMode, modes, roomType, selectedModeId]);
 
   const handleCopyCode = () => {
     if (!roomId) return;
@@ -104,7 +109,7 @@ export default function WaitingRoom({
       destination: `/app/game/${roomId}/start`,
       body: JSON.stringify({
         gameMode: selectedModeId,
-        genericProperties: roomType === "QUIZ_ROYALE" ? { strikeLimit, playMode: quizPlayMode, turnSeconds } : {}
+        genericProperties: roomType === "QUIZ_ROYALE" ? { strikeLimit, playMode: quizPlayMode, turnSeconds, questionCount } : {}
       })
     });
   };
@@ -154,7 +159,7 @@ export default function WaitingRoom({
               <span className="text-[10px] font-black uppercase tracking-widest">Configuration Matrix</span>
             </div>
 
-            <div>
+            {roomType !== "QUIZ_ROYALE" && <div>
               <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-black mb-2">Select Match Preset</label>
               <div className="grid grid-cols-2 gap-2">
                 {modes.map((mode) => {
@@ -175,7 +180,14 @@ export default function WaitingRoom({
                   );
                 })}
               </div>
-            </div>
+            </div>}
+
+            {roomType === "QUIZ_ROYALE" && (
+              <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Quiz Royale category</p>
+                <p className="mt-1 text-sm font-black uppercase text-cyan-300">{selectedModeId || "Cricket"}</p>
+              </div>
+            )}
 
             {roomType === "QUIZ_ROYALE" && (
               <div className="mt-5 border-t border-white/5 pt-4 space-y-5">
@@ -188,6 +200,14 @@ export default function WaitingRoom({
                     <button type="button" onClick={() => setQuizPlayMode("ROUND_ROBIN")} className={`rounded-xl border px-3 py-3 text-[10px] font-black uppercase tracking-wide transition-all ${quizPlayMode === "ROUND_ROBIN" ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>
                       <span className="flex items-center justify-center gap-1.5"><span className="group/info relative inline-flex"><Info size={12} aria-label="About Round Robin" /><span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-52 -translate-x-1/2 rounded-lg border border-white/10 bg-black px-3 py-2 text-left text-[10px] font-medium normal-case tracking-normal text-zinc-200 shadow-xl group-hover/info:block">Players answer one at a time in order. A wrong answer, pass, or timeout gives the active player a strike.</span></span>Round Robin</span>
                     </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-black mb-2">Questions</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map((count) => (
+                      <button key={count} type="button" onClick={() => setQuestionCount(count)} className={`h-10 w-10 rounded-xl border text-xs font-black transition-all ${questionCount === count ? "border-cyan-500 bg-cyan-500/10 text-cyan-400" : "border-zinc-800 bg-zinc-950 text-zinc-500"}`}>{count}</button>
+                    ))}
                   </div>
                 </div>
                 <div>

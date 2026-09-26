@@ -19,16 +19,23 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
   const [notes, setNotes] = useState<Record<string, number[]>>({});
   const [focusedCell, setFocusedCell] = useState<string | null>("0-0");
   const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false);
+  const [now, setNow] = useState(Date.now());
   
   const lastKnownProgress = useRef(0);
   const isInternalChange = useRef(false);
 
   const playersList = publicState?.players || [];
   const publicGameData = publicState?.gameSpecificPublicData || {};
+  const isStarting = Number(publicGameData?.playStartsAtMillis || 0) > now;
+  const startingSeconds = Math.max(0, Math.ceil((Number(publicGameData?.playStartsAtMillis || 0) - now) / 1000));
   const privateGameData = privateState?.privateGameData || {};
   
   const mySelf = privateState?.self || playersList.find((p: any) => p.id === playerId) || {};
   const myProgress = mySelf?.stats?.percentSolved ?? mySelf?.progress ?? 0;
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(interval);
+  }, []);
   
   useEffect(() => {
     if (myProgress > 0) lastKnownProgress.current = myProgress;
@@ -73,7 +80,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
 
   const handleCellChange = (row: number, col: number, value: string) => {
     const initialBoard = privateGameData?.initialBoard || publicGameData?.initialBoard || [];
-    if (isMeFinished || initialBoard?.[row]?.[col] !== 0) return;
+    if (isStarting || isMeFinished || initialBoard?.[row]?.[col] !== 0) return;
     
     const val = value.slice(-1);
     const num = parseInt(val);
@@ -103,7 +110,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isMeFinished || !focusedCell || showGiveUpConfirm) return;
+      if (isStarting || isMeFinished || !focusedCell || showGiveUpConfirm) return;
 
       const [r, c] = focusedCell.split("-").map(Number);
       let nextR = r;
@@ -128,7 +135,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedCell, isMeFinished, notesMode, localBoard, notes, showGiveUpConfirm, size]);
+  }, [focusedCell, isStarting, isMeFinished, notesMode, localBoard, notes, showGiveUpConfirm, size]);
 
   const confirmGiveUp = () => {
     setShowGiveUpConfirm(false);
@@ -146,7 +153,8 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
   }
 
   return (
-    <div className="flex flex-col items-center w-full min-h-screen bg-black text-white p-4 font-sans">
+    <div className="relative flex flex-col items-center w-full min-h-screen bg-black text-white p-4 font-sans">
+      {isStarting && <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/90 p-6 text-center"><motion.div initial={{ opacity: 0, scale: .97 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md rounded-3xl border border-cyan-400/30 bg-cyan-400/10 p-8"><p className="font-mono text-xs uppercase tracking-[.4em] text-cyan-300">Starting Sudoku</p><p className="mt-5 text-sm font-mono uppercase tracking-[.3em] text-zinc-300">Begins in</p><p className="mt-1 text-6xl font-black text-cyan-300">{startingSeconds}</p></motion.div></div>}
       <div className="flex justify-between items-center w-full max-w-[450px] mb-8 mt-4 px-1">
         <div className="flex flex-col gap-1 bg-zinc-900/50 border border-zinc-800 p-3 px-4 rounded-2xl shadow-xl">
           <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
