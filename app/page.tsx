@@ -142,6 +142,9 @@ export default function HomePage() {
         <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.5em] mb-8">
           Multiplayer Game Protocol v3.1
         </p>
+        <p className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          Play multiplayer cricket quiz, football quiz, Bollywood quiz, WWE quiz, Wordle Rush, and Sudoku games with friends.
+        </p>
         
         <div className="flex justify-center gap-4">
             <button 

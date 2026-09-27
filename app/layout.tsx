@@ -1,5 +1,12 @@
 import Navbar from '@/components/Navbar';
 import './globals.css';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'FunFriday | Multiplayer Quizzes, Wordle Rush & Sudoku',
+  description:
+    'Play multiplayer cricket quizzes, football quizzes, Bollywood quizzes, WWE quizzes, Wordle Rush, and Sudoku with friends on FunFriday.',
+};
 
 export default function RootLayout({
   children,

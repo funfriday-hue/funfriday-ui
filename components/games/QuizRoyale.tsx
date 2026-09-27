@@ -39,6 +39,8 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
   const isRankedList = data.questionType === "RANKED_LIST";
   const acceptedAnswerCountRef = useRef(acceptedAnswerCount);
   const answersListRef = useRef<HTMLDivElement>(null);
+  const rankedAnswerRefs = useRef(new Map<number, HTMLParagraphElement>());
+  const revealedRanksRef = useRef<{ questionIdentity: string; ranks: Set<number> } | null>(null);
   const configuredSeconds = data.turnSeconds ?? 60;
   const strikePlayer = isAllPlay ? localPlayer : activePlayer;
   const isLocalPlayerEliminated = localPlayer?.status === "ELIMINATED";
@@ -57,10 +59,42 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
   useEffect(() => {
     if (acceptedAnswerCount > acceptedAnswerCountRef.current) {
       setAnswer("");
-      answersListRef.current?.scrollTo({ top: answersListRef.current.scrollHeight, behavior: "smooth" });
+      if (!isRankedList) {
+        answersListRef.current?.scrollTo({ top: answersListRef.current.scrollHeight, behavior: "smooth" });
+      }
     }
     acceptedAnswerCountRef.current = acceptedAnswerCount;
-  }, [acceptedAnswerCount]);
+  }, [acceptedAnswerCount, isRankedList]);
+  useEffect(() => {
+    if (!isRankedList) return;
+
+    const questionIdentity = `${data.questionNumber || 1}:${data.question || ""}`;
+    const revealedRanks = new Set((data.rankedAnswers || []).filter(row => row.revealed).map(row => row.rank));
+    const previous = revealedRanksRef.current;
+    if (!previous || previous.questionIdentity !== questionIdentity) {
+      revealedRanksRef.current = { questionIdentity, ranks: revealedRanks };
+      return;
+    }
+
+    const newlyRevealedRank = [...revealedRanks].find(rank => !previous.ranks.has(rank));
+    revealedRanksRef.current = { questionIdentity, ranks: revealedRanks };
+    if (newlyRevealedRank === undefined) return;
+
+    window.requestAnimationFrame(() => {
+      const container = answersListRef.current;
+      const row = rankedAnswerRefs.current.get(newlyRevealedRank);
+      if (!container || !row) return;
+
+      const containerBounds = container.getBoundingClientRect();
+      const rowBounds = row.getBoundingClientRect();
+      if (rowBounds.top < containerBounds.top || rowBounds.bottom > containerBounds.bottom) {
+        const offset = rowBounds.top < containerBounds.top
+          ? rowBounds.top - containerBounds.top
+          : rowBounds.bottom - containerBounds.bottom;
+        container.scrollBy({ top: offset, behavior: "smooth" });
+      }
+    });
+  }, [data.question, data.questionNumber, data.rankedAnswers, isRankedList]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -82,7 +116,7 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
       <form onSubmit={submit} className="flex gap-3"><input value={answer} onChange={event => setAnswer(event.target.value)} disabled={!isMyTurn || isFinished} placeholder={isMyTurn ? "Type your answer…" : isLocalPlayerEliminated ? "Strike out — you are eliminated" : "Wait for your turn"} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none focus:border-cyan-400 disabled:opacity-50"/><button disabled={!isMyTurn || isFinished} className="rounded-2xl bg-cyan-400 px-6 py-4 text-xs font-black uppercase tracking-widest text-black disabled:opacity-40">Submit</button>{(!isAllPlay || data.questionType === "CHRONOLOGY") && <button type="button" onClick={passTurn} disabled={!isMyTurn || isFinished || (isAllPlay && hasPassedCurrentChronologyItem)} className="rounded-2xl border border-rose-400/50 px-5 py-4 text-xs font-black uppercase tracking-widest text-rose-300 transition-colors hover:bg-rose-400/10 disabled:opacity-40">{isAllPlay && hasPassedCurrentChronologyItem ? "Passed" : "Pass"}</button>}</form>
       {data.lastEvent && <p className="mt-5 text-center text-sm font-bold text-zinc-400">{data.lastEvent}</p>}
     </section>
-    <aside className="flex max-h-[420px] flex-col rounded-[2rem] border border-white/10 bg-zinc-950 p-5"><div className="flex items-center justify-between gap-3"><h2 className="text-[10px] font-mono uppercase tracking-[.3em] text-zinc-500">Answers found</h2>{(data.questionType === "LIST" || isRankedList) && typeof data.totalAnswerCount === "number" && <span className="shrink-0 font-mono text-xs font-bold text-cyan-300">{acceptedAnswerCount}/{data.totalAnswerCount}</span>}</div><div ref={answersListRef} className="mt-4 min-h-0 space-y-3 overflow-y-auto pr-2">{isRankedList ? (data.rankedAnswers || []).map(row => <p key={row.rank} className={`text-sm font-semibold ${row.revealed ? "text-white" : "text-zinc-500"}`}>{row.rank}. {row.revealed ? `${row.answer}${row.value ? ` · ${row.value}` : ""}` : "_______"}</p>) : <>{(data.acceptedAnswers || []).map((accepted, index) => <p key={`${index}-${accepted}`} className="text-sm font-semibold text-white">{index + 1}. {accepted}</p>)}{!(data.acceptedAnswers || []).length && <p className="text-sm text-zinc-600">No accepted answers yet.</p>}</>}</div></aside>
+    <aside className="flex max-h-[420px] flex-col rounded-[2rem] border border-white/10 bg-zinc-950 p-5"><div className="flex items-center justify-between gap-3"><h2 className="text-[10px] font-mono uppercase tracking-[.3em] text-zinc-500">Answers found</h2>{(data.questionType === "LIST" || isRankedList) && typeof data.totalAnswerCount === "number" && <span className="shrink-0 font-mono text-xs font-bold text-cyan-300">{acceptedAnswerCount}/{data.totalAnswerCount}</span>}</div><div ref={answersListRef} className="mt-4 min-h-0 space-y-3 overflow-y-auto pr-2">{isRankedList ? (data.rankedAnswers || []).map(row => <p ref={node => { if (node) rankedAnswerRefs.current.set(row.rank, node); else rankedAnswerRefs.current.delete(row.rank); }} key={row.rank} className={`text-sm font-semibold ${row.revealed ? "text-white" : "text-zinc-500"}`}>{row.rank}. {row.revealed ? `${row.answer}${row.value ? ` · ${row.value}` : ""}` : "_______"}</p>) : <>{(data.acceptedAnswers || []).map((accepted, index) => <p key={`${index}-${accepted}`} className="text-sm font-semibold text-white">{index + 1}. {accepted}</p>)}{!(data.acceptedAnswers || []).length && <p className="text-sm text-zinc-600">No accepted answers yet.</p>}</>}</div></aside>
   </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined} restartLabel="Restart" renderStats={player => <div><p className="font-black text-cyan-300">{player.score} points</p><p className="text-xs text-zinc-500">{player.stats?.strikes || 0}/{data.strikeLimit || 3} strikes</p></div>}>
     <div className="mb-6 rounded-2xl border border-white/10 bg-white/[.03] p-4">
       <div className="mb-3 flex items-center justify-between gap-3"><p className="text-[10px] font-mono font-bold uppercase tracking-[.22em] text-zinc-500">Answer review</p><p className="text-[10px] font-bold text-zinc-500">Green: answered · Red: missed</p></div>
