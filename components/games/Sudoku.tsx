@@ -20,14 +20,18 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
   const [focusedCell, setFocusedCell] = useState<string | null>("0-0");
   const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [serverClockOffset, setServerClockOffset] = useState(0);
   
   const lastKnownProgress = useRef(0);
   const isInternalChange = useRef(false);
 
   const playersList = publicState?.players || [];
   const publicGameData = publicState?.gameSpecificPublicData || {};
-  const isStarting = Number(publicGameData?.playStartsAtMillis || 0) > now;
-  const startingSeconds = Math.max(0, Math.ceil((Number(publicGameData?.playStartsAtMillis || 0) - now) / 1000));
+  const serverNowMillis = Number(publicGameData?.serverNowMillis || 0);
+  const serverNow = now + serverClockOffset;
+  const isStarting = Number(publicGameData?.playStartsAtMillis || 0) > serverNow;
+  const startingSeconds = Math.max(0, Math.ceil((Number(publicGameData?.playStartsAtMillis || 0) - serverNow) / 1000));
+  const elapsedSeconds = Math.max(0, Math.floor((serverNow - Number(publicGameData?.playStartsAtMillis || serverNow)) / 1000));
   const privateGameData = privateState?.privateGameData || {};
   
   const mySelf = privateState?.self || playersList.find((p: any) => p.id === playerId) || {};
@@ -36,6 +40,9 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
     const interval = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(interval);
   }, []);
+  useEffect(() => {
+    if (Number.isFinite(serverNowMillis) && serverNowMillis > 0) setServerClockOffset(serverNowMillis - Date.now());
+  }, [serverNowMillis]);
   
   useEffect(() => {
     if (myProgress > 0) lastKnownProgress.current = myProgress;
@@ -55,6 +62,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
     const secs = totalSeconds % 60;
     return mins === 0 ? `${secs} sec` : `${mins}m ${secs}s`;
   };
+  const formatCountdown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   useEffect(() => {
     const serverBoard = privateGameData?.playerBoard || privateGameData?.board;
@@ -163,6 +171,11 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
           <span className="text-2xl font-mono font-black text-white leading-none">
             {Math.trunc(displayProgress)}%
           </span>
+        </div>
+
+        <div className="flex flex-col gap-1 border border-cyan-500/30 bg-cyan-500/10 p-3 px-4 rounded-2xl shadow-xl">
+          <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2"><Clock size={12} className="text-cyan-400" /> Elapsed</span>
+          <span className="text-2xl font-mono font-black leading-none text-cyan-300">{formatCountdown(elapsedSeconds)}</span>
         </div>
 
         {!isMeFinished && (
@@ -326,7 +339,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
                   const isLocal = p.id === playerId; 
                   const serverProgress = p.stats?.percentSolved ?? p.progress ?? 0;
                   const display = isLocal ? lastKnownProgress.current : serverProgress;
-                  const timeMs = (p.stats?.timeElapsedSeconds || 0) * 1000;
+                  const timeMs = p.stats?.completionTimeMillis ?? ((p.stats?.timeElapsedSeconds || 0) * 1000);
 
                   return (
                     <div

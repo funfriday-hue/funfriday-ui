@@ -29,6 +29,7 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   const [currentGuess, setCurrentGuess] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [serverClockOffset, setServerClockOffset] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Parse clean states
@@ -43,8 +44,10 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   }, [privateState]);
 
   const publicGameData = cleanPublic?.gameSpecificPublicData || {};
-  const isStarting = Number(publicGameData?.playStartsAtMillis || 0) > now;
-  const startingSeconds = Math.max(0, Math.ceil((Number(publicGameData?.playStartsAtMillis || 0) - now) / 1000));
+  const serverNowMillis = Number(publicGameData?.serverNowMillis || 0);
+  const serverNow = now + serverClockOffset;
+  const isStarting = Number(publicGameData?.playStartsAtMillis || 0) > serverNow;
+  const startingSeconds = Math.max(0, Math.ceil((Number(publicGameData?.playStartsAtMillis || 0) - serverNow) / 1000));
   const privateGameData = cleanPrivate?.privateGameData || {};
   
   const attempts = privateGameData?.playerAttempts || privateGameData?.attempts || [];
@@ -53,6 +56,8 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
 
   // Determine if this is an active countdown/timed mode
   const isTimedMode = publicGameData?.remainingSeconds !== undefined;
+  const isWordRace = ["WORD_3", "WORD_5", "WORD_10"].includes(cleanPublic?.configuration?.gameMode);
+  const elapsedRaceSeconds = Math.max(0, Math.floor((serverNow - Number(publicGameData?.playStartsAtMillis || serverNow)) / 1000));
   const [localSecondsLeft, setLocalSecondsLeft] = useState(secondsLeft);
 
   useEffect(() => {
@@ -62,6 +67,9 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
     const interval = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(interval);
   }, []);
+  useEffect(() => {
+    if (Number.isFinite(serverNowMillis) && serverNowMillis > 0) setServerClockOffset(serverNowMillis - Date.now());
+  }, [serverNowMillis]);
 
   const mySelf = useMemo(() => {
     const baseSelf = cleanPrivate?.self || (synchronizedPlayers || []).find((p: any) => String(p.id) === String(playerId)) || {};
@@ -218,13 +226,18 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
 
         <div className="flex gap-4 sm:gap-6 items-end">
           {/* RUSH COUNTDOWN DISPLAY BOX */}
-          {isTimedMode && (
+          {isTimedMode ? (
             <div className="text-right border-r border-zinc-900 pr-4 sm:pr-6">
               <p className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider mb-0.5">RUSH TIME</p>
               <p className={`text-lg font-black font-mono leading-none transition-colors duration-300
                 ${localSecondsLeft > 30 ? 'text-emerald-500' : 'text-rose-500 animate-pulse'}`}>
                 {renderDigitalClock(localSecondsLeft)}
               </p>
+            </div>
+          ) : isWordRace && (
+            <div className="text-right border-r border-zinc-900 pr-4 sm:pr-6">
+              <p className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider mb-0.5">RACE TIME</p>
+              <p className="text-lg font-black font-mono leading-none text-cyan-400">{renderDigitalClock(elapsedRaceSeconds)}</p>
             </div>
           )}
 
@@ -356,9 +369,9 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
       <p className="text-white font-black">{p.score} Solved</p>
       <p className="text-xs text-zinc-500">{p.stats?.tries || 0} Tries</p>
       
-      {!isTimeAttack && p.stats?.timeElapsedSeconds && (
+      {!isTimeAttack && p.stats?.completionTimeMillis > 0 && (
         <p className="text-xs text-cyan-400 font-mono">
-          ⏱️ {formatTimeElapsed(p.stats.timeElapsedSeconds)}
+          ⏱️ {formatTimeElapsed(Math.floor(p.stats.completionTimeMillis / 1000))}
         </p>
       )}
     </div>

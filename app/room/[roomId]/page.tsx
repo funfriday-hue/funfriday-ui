@@ -23,6 +23,11 @@ export default function RoomPage() {
   const router = useRouter();
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [admissionChecked, setAdmissionChecked] = useState(false);
+  const [showJoinPrompt, setShowJoinPrompt] = useState(false);
+  const [joinName, setJoinName] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [joiningRoom, setJoiningRoom] = useState(false);
   
   const [publicRoom, setPublicRoom] = useState<any>(null);
   const [privateData, setPrivateData] = useState<any>(null);
@@ -32,9 +37,47 @@ export default function RoomPage() {
   const stompClientRef = useRef<Client | null>(null);
 
   useEffect(() => {
-    setPlayerName(Cookies.get("playerName") || null);
+    const savedName = Cookies.get("playerName") || "";
+    setPlayerName(savedName || null);
     setPlayerId(Cookies.get("playerId") || null);
+    setJoinName(savedName);
   }, []);
+
+  useEffect(() => {
+    if (!roomId) return;
+    const roomCode = Array.isArray(roomId) ? roomId[0] : roomId;
+    const admittedFromHome = sessionStorage.getItem("funfriday-room-admission") === roomCode;
+    setShowJoinPrompt(!admittedFromHome);
+    setAdmissionChecked(true);
+  }, [roomId]);
+
+  const joinRoomFromLink = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const roomCode = Array.isArray(roomId) ? roomId[0] : roomId;
+    if (!roomCode || !joinName.trim()) {
+      setJoinError("Enter your name to join this room.");
+      return;
+    }
+    setJoiningRoom(true);
+    setJoinError("");
+    try {
+      const isProduction = window.location.hostname !== "localhost";
+      const baseApiUrl = isProduction ? "/api" : "http://localhost:8080/api";
+      const response = await fetch(`${baseApiUrl}/rooms/join/${roomCode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerName: joinName.trim() }),
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error(await response.text() || "Unable to join this room.");
+      Cookies.set("playerName", joinName.trim(), { expires: 1, path: "/" });
+      sessionStorage.setItem("funfriday-room-admission", roomCode);
+      window.location.reload();
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : "Unable to join this room.");
+      setJoiningRoom(false);
+    }
+  };
 
   useEffect(() => {
     if (!playerName || !playerId || !roomId) return;
@@ -103,6 +146,15 @@ export default function RoomPage() {
     if (!synchronizedPlayers || synchronizedPlayers.length === 0) return [];
     return getSortedPlayers(synchronizedPlayers, resolvedGameType);
   }, [synchronizedPlayers, resolvedGameType]);
+
+  if (!admissionChecked) {
+    return <div className="h-screen bg-black" />;
+  }
+
+  if (showJoinPrompt) {
+    const roomCode = Array.isArray(roomId) ? roomId[0] : roomId;
+    return <main className="flex min-h-screen items-center justify-center bg-[#090a0f] p-5 text-white"><section className="w-full max-w-md rounded-[2rem] border border-white/10 bg-zinc-950 p-7 shadow-2xl"><p className="font-mono text-[10px] font-bold uppercase tracking-[.35em] text-cyan-400">FunFriday / room access</p><h1 className="mt-3 text-3xl font-black uppercase">Join the room</h1><p className="mt-2 text-sm text-zinc-400">Confirm your name to enter this multiplayer room.</p><form onSubmit={joinRoomFromLink} className="mt-7 space-y-4"><label className="block"><span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Room code</span><input value={roomCode || ""} readOnly className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 font-mono font-black tracking-[.25em] text-zinc-300 outline-none" /></label><label className="block"><span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Your name</span><input value={joinName} onChange={event => setJoinName(event.target.value)} autoFocus required maxLength={40} placeholder="Enter your name" className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 font-semibold outline-none focus:border-cyan-400" /></label>{joinError && <p className="text-sm text-rose-300">{joinError}</p>}<button disabled={joiningRoom} className="w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black uppercase tracking-widest text-black disabled:opacity-50">{joiningRoom ? "Joining…" : "Join room"}</button></form></section></main>;
+  }
 
   if (!playerName || !playerId || !connected || !cleanPublic) {
     return (

@@ -228,6 +228,7 @@ export default function WaitingRoom({
                 </div>
               </div>
             )}
+
           </div>
         )}
 

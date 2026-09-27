@@ -48,7 +48,7 @@ const QUIZ_ROYALE_GUIDE = {
   detail: "Name unique answers before the clock or your strikes run out.",
   active: true,
   instructions: {
-    howToPlay: "Choose a category, then the host selects 1, 2, or 3 questions, a timer, and a strike limit. List questions accept unique answers. Chronology questions require the next answer for the shown hint in sequence.",
+    howToPlay: "Choose a category, then the host selects 1, 2, or 3 questions, a timer, and a strike limit. List questions accept unique answers. Chronology questions require the next answer for the shown hint in sequence. Ranked List questions show fixed blank ranks; a correct answer reveals its name and value at its proper rank.",
     multiplayer: "All Play lets everyone submit at once. Round Robin gives one player the turn at a time. A wrong answer, pass, or timeout costs a strike. Reaching the limit eliminates a player only for the current question; everyone gets fresh strikes on the next question.",
     scoring: "Each accepted answer earns 1 point. Points carry across all selected questions. Final standings rank higher points first, then fewer strikes on the final question."
   }
@@ -118,6 +118,7 @@ export default function HomePage() {
       }
 
       const roomData = await response.json();
+      sessionStorage.setItem("funfriday-room-admission", roomData.roomId);
       router.push(`/room/${roomData.roomId}`);
     } catch (err: any) {
       console.error(err);
