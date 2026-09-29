@@ -39,6 +39,7 @@ const QUIZ_CATEGORIES = [
   { id: "FOOTBALL", name: "Football", icon: "⚽" },
   { id: "BOLLYWOOD", name: "Bollywood", icon: "🎬" },
   { id: "WWE", name: "WWE", icon: "🤼" },
+  { id: "INDIA", name: "India", icon: "🇮🇳" },
 ];
 
 const QUIZ_ROYALE_GUIDE = {
@@ -139,9 +140,6 @@ export default function HomePage() {
         >
           FUN<span className="text-cyan-500">FRIDAY</span>
         </motion.h1>
-        <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.5em] mb-8">
-          Multiplayer Game Protocol v3.1
-        </p>
         <p className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-zinc-400">
           Play multiplayer cricket quiz, football quiz, Bollywood quiz, WWE quiz, Wordle Rush, and Sudoku games with friends.
         </p>
@@ -391,8 +389,6 @@ export default function HomePage() {
               <h5 className="text-white text-[11px] font-black uppercase tracking-[0.2em]">Contact</h5>
               <ul className="space-y-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
                 <li><a href="mailto:shriaman93@gmail.com" className="hover:text-cyan-400 transition-colors text-cyan-500">Email HQ</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Twitter / X</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Discord</a></li>
               </ul>
             </div>
           </div>
