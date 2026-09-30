@@ -1,7 +1,6 @@
 import Navbar from '@/components/Navbar';
 import './globals.css';
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { ADSENSE_CLIENT } from '@/lib/adsense';
 
 export const metadata: Metadata = {
@@ -18,12 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <head>
-        <Script
-          id="funfriday-adsense"
+        <script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
           crossOrigin="anonymous"
-          strategy="beforeInteractive"
         />
       </head>
       <body className="bg-slate-950 min-h-full flex flex-col text-white m-0 p-0">
