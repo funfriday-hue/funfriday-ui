@@ -1,6 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
+import Link from 'next/link';
 
 // Exported utility so Wordle.tsx, Sudoku.tsx, etc., can import it instead of duplicating code
 export const formatTimeElapsed = (totalSeconds: number | undefined | null): string => {
@@ -28,6 +30,8 @@ interface ResultModalProps<T> {
   targetWord?: string;
   myStatus?: any; 
   children?: React.ReactNode;
+  sidePanel?: React.ReactNode;
+  adSlot?: React.ReactNode;
   onRestart?: () => void;
   restartLabel?: string;
 }
@@ -49,6 +53,8 @@ export default function ResultModal<T extends {
   isTimeAttack = false,
   targetWord, // 👈 Destructured targetWord
   children,
+  sidePanel,
+  adSlot,
   onRestart,
   restartLabel = "Restart match"
 }: ResultModalProps<T>) {
@@ -58,14 +64,78 @@ export default function ResultModal<T extends {
     (p) => String(p.id) === String(localPlayerId) && (p.status === "FAILED" || p.status === "GIVEN_UP")
   );
 
+  const playerStandings = (
+    <div className={`${sidePanel ? "flex-1 space-y-2 overflow-y-auto pr-2 no-scrollbar" : "max-h-[45vh] space-y-3 overflow-y-auto pr-2 no-scrollbar"}`}>
+      {players.map((stat, idx) => {
+        // Normalize attribute lookup strategies for flat vs nested payload schemas
+        const name = stat.playerName || stat.name || stat.player?.name || "Player";
+        const isLocal = String(stat.id) === String(localPlayerId);
+        const isOriginalSuccess = stat.status === "COMPLETED";
+        const isOriginalFailed = stat.status === "FAILED" || stat.status === "GIVEN_UP";
+
+        const boxStyles = isLocal 
+          ? (isOriginalSuccess ? 'border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]' 
+            : isOriginalFailed ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 bg-white/5')
+          : 'border-white/5 bg-white/5';
+
+        return (
+          <motion.div 
+            key={idx} 
+            initial={{ x: -10, opacity: 0 }} 
+            animate={{ x: 0, opacity: 1 }}
+            className={`flex items-center justify-between rounded-xl border transition-all ${sidePanel ? "p-3" : "p-4"} ${boxStyles}`}
+          >
+            <div className="font-black uppercase tracking-tight text-white select-none">
+              {name}
+              {isLocal && <span className="ml-2 text-[8px] font-mono text-zinc-500 underline">You</span>}
+            </div>
+            <div className="text-right">
+              {renderStats(stat, isTimeAttack)}
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+
+  const actions = (
+    <div className={sidePanel ? "mt-6 grid gap-3 sm:grid-cols-2" : ""}>
+      {onRestart && (
+        <button
+          onClick={onRestart}
+          className={`w-full rounded-xl bg-cyan-400 py-4 text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-cyan-300 ${sidePanel ? "" : "mb-3"}`}
+        >
+          {restartLabel}
+        </button>
+      )}
+
+      <button 
+        onClick={() => window.location.href = '/'} 
+        className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm"
+      >
+        Return to Home
+      </button>
+    </div>
+  );
+
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
+          <Link href="/" aria-label="Return to FunFriday home" className="absolute left-5 top-5 transition-transform hover:scale-105 active:scale-95">
+            <Image
+              src="/logo.png"
+              alt="FunFriday"
+              width={90}
+              height={90}
+              className="h-auto w-16 drop-shadow-2xl md:w-20"
+              priority
+            />
+          </Link>
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }} 
             animate={{ scale: 1, opacity: 1 }} 
-            className="bg-zinc-950 border border-white/10 p-8 rounded-3xl max-w-md w-full shadow-2xl"
+            className={`max-h-[92dvh] w-full overflow-y-auto rounded-3xl border border-white/10 bg-zinc-950 p-8 shadow-2xl ${sidePanel ? "flex h-[calc(100dvh-3rem)] max-w-[calc(100vw-3rem)] flex-col" : "max-w-md"}`}
           >
             <h2 className={`text-3xl font-black text-center italic text-white uppercase tracking-tighter ${didLocalPlayerFail && targetWord ? 'mb-4' : 'mb-8'}`}>
               {title}
@@ -89,55 +159,24 @@ export default function ResultModal<T extends {
               </motion.div>
             )}
             
-            <div className="space-y-3 mb-10 max-h-[45vh] overflow-y-auto pr-2 no-scrollbar">
-              {players.map((stat, idx) => {
-                // Normalize attribute lookup strategies for flat vs nested payload schemas
-                const name = stat.playerName || stat.name || stat.player?.name || "Player";
-                const isLocal = String(stat.id) === String(localPlayerId);
-                const isOriginalSuccess = stat.status === "COMPLETED";
-                const isOriginalFailed = stat.status === "FAILED" || stat.status === "GIVEN_UP";
-
-                const boxStyles = isLocal 
-                  ? (isOriginalSuccess ? 'border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]' 
-                    : isOriginalFailed ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 bg-white/5')
-                  : 'border-white/5 bg-white/5';
-
-                return (
-                  <motion.div 
-                    key={idx} 
-                    initial={{ x: -10, opacity: 0 }} 
-                    animate={{ x: 0, opacity: 1 }}
-                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${boxStyles}`}
-                  >
-                    <div className="font-black uppercase tracking-tight text-white select-none">
-                      {name}
-                      {isLocal && <span className="ml-2 text-[8px] font-mono text-zinc-500 underline">You</span>}
-                    </div>
-                    <div className="text-right">
-                      {renderStats(stat, isTimeAttack)}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {children}
-
-            {onRestart && (
-              <button
-                onClick={onRestart}
-                className="mb-3 w-full rounded-xl bg-cyan-400 py-4 text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-cyan-300"
-              >
-                {restartLabel}
-              </button>
+            {sidePanel ? (
+              <>
+              <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(320px,5fr)_minmax(480px,7fr)]">
+                <section className="flex min-h-0 flex-col rounded-2xl border border-white/10 bg-white/[.03] p-5">
+                  {playerStandings}
+                  {adSlot && <div className="mt-4 shrink-0 border-t border-white/10 pt-4">{adSlot}</div>}
+                </section>
+                <aside className="min-h-0 overflow-y-auto rounded-2xl border border-white/10 bg-white/[.03] p-5">{sidePanel}</aside>
+              </div>
+              {actions}
+              </>
+            ) : (
+              <>
+                <div className="mb-10">{playerStandings}</div>
+                {children}
+                {actions}
+              </>
             )}
-
-            <button 
-              onClick={() => window.location.href = '/'} 
-              className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm"
-            >
-              Return to Home
-            </button>
           </motion.div>
         </div>
       )}

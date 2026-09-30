@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import ResultModal from "../ResultModal";
+import AdSlot from "../AdSlot";
+import { ADSENSE_SLOTS } from "@/lib/adsense";
 import { getSortedPlayers } from "../../utils/gameRules";
 
 type StompClient = { publish: (message: { destination: string; body: string }) => void };
@@ -117,8 +119,8 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
       {data.lastEvent && <p className="mt-5 text-center text-sm font-bold text-zinc-400">{data.lastEvent}</p>}
     </section>
     <aside className="flex max-h-[420px] flex-col rounded-[2rem] border border-white/10 bg-zinc-950 p-5"><div className="flex items-center justify-between gap-3"><h2 className="text-[10px] font-mono uppercase tracking-[.3em] text-zinc-500">Answers found</h2>{(data.questionType === "LIST" || isRankedList) && typeof data.totalAnswerCount === "number" && <span className="shrink-0 font-mono text-xs font-bold text-cyan-300">{acceptedAnswerCount}/{data.totalAnswerCount}</span>}</div><div ref={answersListRef} className="mt-4 min-h-0 space-y-3 overflow-y-auto pr-2">{isRankedList ? (data.rankedAnswers || []).map(row => <p ref={node => { if (node) rankedAnswerRefs.current.set(row.rank, node); else rankedAnswerRefs.current.delete(row.rank); }} key={row.rank} className={`text-sm font-semibold ${row.revealed ? "text-white" : "text-zinc-500"}`}>{row.rank}. {row.revealed ? `${row.answer}${row.value ? ` · ${row.value}` : ""}` : "_______"}</p>) : <>{(data.acceptedAnswers || []).map((accepted, index) => <p key={`${index}-${accepted}`} className="text-sm font-semibold text-white">{index + 1}. {accepted}</p>)}{!(data.acceptedAnswers || []).length && <p className="text-sm text-zinc-600">No accepted answers yet.</p>}</>}</div></aside>
-  </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined} restartLabel="Restart" renderStats={player => <div><p className="font-black text-cyan-300">{player.score} points</p><p className="text-xs text-zinc-500">{player.stats?.strikes || 0}/{data.strikeLimit || 3} strikes</p></div>}>
-    <div className="mb-6 rounded-2xl border border-white/10 bg-white/[.03] p-4">
+  </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined} restartLabel="Restart" renderStats={player => <div><p className="font-black text-cyan-300">{player.score} points</p><p className="text-xs text-zinc-500">{player.stats?.strikes || 0}/{data.strikeLimit || 3} strikes</p></div>} adSlot={<AdSlot slot={ADSENSE_SLOTS.results} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" />} sidePanel={<>
+    <div>
       <div className="mb-3 flex items-center justify-between gap-3"><p className="text-[10px] font-mono font-bold uppercase tracking-[.22em] text-zinc-500">Answer review</p><p className="text-[10px] font-bold text-zinc-500">Green: answered · Red: missed</p></div>
       <div className="space-y-2">
         {questionResults.map(result => {
@@ -139,5 +141,5 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
         })}
       </div>
     </div>
-  </ResultModal></div>;
+  </>} /></div>;
 }

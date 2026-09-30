@@ -6,6 +6,8 @@ import Link from "next/link";
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Users, Trophy, Target } from "lucide-react";
+import AdSlot from "@/components/AdSlot";
+import { ADSENSE_SLOTS } from "@/lib/adsense";
 
 const BRAIN_ARCADE_GAMES = [
   { 
@@ -49,8 +51,8 @@ const QUIZ_ROYALE_GUIDE = {
   detail: "Name unique answers before the clock or your strikes run out.",
   active: true,
   instructions: {
-    howToPlay: "Choose a category, then the host selects 1, 2, or 3 questions, a timer, and a strike limit. List questions accept unique answers. Chronology questions require the next answer for the shown hint in sequence. Ranked List questions show fixed blank ranks; a correct answer reveals its name and value at its proper rank.",
-    multiplayer: "All Play lets everyone submit at once. Round Robin gives one player the turn at a time. A wrong answer, pass, or timeout costs a strike. Reaching the limit eliminates a player only for the current question; everyone gets fresh strikes on the next question.",
+    howToPlay: "Choose a category, then the host selects 1, 2, or 3 questions, a timer, and a strike limit.\n\nQuiz Royale has three question types:\n• List — name as many distinct correct answers as you can.\n• Chronology — answer the next item for the hint shown, in the required order.\n• Ranked List — reveal the correct answer and value in its fixed rank.",
+    multiplayer: "Quiz Royale has two multiplayer modes:\n• All Play — everyone can submit answers at the same time.\n• Round Robin — only one player answers at a time; turns rotate between active players.\n\nA wrong answer, pass, or timeout costs a strike. Reaching the limit eliminates a player only for the current question; everyone gets fresh strikes on the next question.",
     scoring: "Each accepted answer earns 1 point. Points carry across all selected questions. Final standings rank higher points first, then fewer strikes on the final question."
   }
 };
@@ -140,24 +142,23 @@ export default function HomePage() {
         >
           FUN<span className="text-cyan-500">FRIDAY</span>
         </motion.h1>
-        <p className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-zinc-400">
-          Play multiplayer cricket quiz, football quiz, Bollywood quiz, WWE quiz, Wordle Rush, and Sudoku games with friends.
-        </p>
-        
-        <div className="flex justify-center gap-4">
+        <div className="relative mt-8 flex justify-center gap-4">
             <button 
                 onClick={triggerJoinFlow}
-                className="px-6 py-2 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+                className="group inline-flex items-center gap-3 rounded-xl border border-cyan-300 bg-cyan-400 px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,0.22)] transition-all hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_12px_30px_rgba(34,211,238,0.38)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0b] active:translate-y-0"
             >
+                <Users size={16} strokeWidth={2.75} aria-hidden="true" />
                 Join with Code
+                <span className="text-base leading-none transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
             </button>
+            <AdSlot slot={ADSENSE_SLOTS.home} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" className="absolute left-1/2 top-1/2 ml-60 h-[250px] w-[300px] -translate-y-1/2" />
         </div>
       </header>
 
       {/* QUIZ ROYALE */}
       <main className="flex-grow flex flex-col items-center px-6 pb-20">
         <section className="w-full max-w-6xl mb-16">
-          <div className="mb-7 text-center"><p className="font-mono text-[10px] uppercase tracking-[.4em] text-cyan-400">Quiz Royale</p><h2 className="mt-2 text-3xl font-black uppercase">Pick a category</h2><button type="button" onClick={() => setShowInfo(QUIZ_ROYALE_GUIDE)} className="mt-3 text-[10px] font-black uppercase tracking-widest text-cyan-300 underline decoration-cyan-400/50 underline-offset-4 hover:text-white">How to play</button></div>
+          <div className="mb-7 text-center"><h2 className="text-4xl font-black uppercase tracking-tight text-cyan-400 sm:text-5xl">Quiz Royale</h2><button type="button" onClick={() => setShowInfo(QUIZ_ROYALE_GUIDE)} className="mt-4 text-[10px] font-black uppercase tracking-widest text-cyan-300 underline decoration-cyan-400/50 underline-offset-4 hover:text-white">How to play</button></div>
           <div className="mx-auto flex w-full max-w-6xl flex-nowrap justify-center gap-5 overflow-x-auto pb-2">
             {QUIZ_CATEGORIES.map((category) => (
               <button key={category.id} type="button" onClick={() => triggerCreateFlow("quiz_royale", category.id)} className="size-48 shrink-0 sm:size-52 rounded-[2rem] border border-white/10 bg-zinc-900 p-4 text-center text-xl font-black uppercase tracking-wide transition-colors hover:border-cyan-400 hover:bg-cyan-400/10 hover:text-cyan-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
@@ -168,7 +169,7 @@ export default function HomePage() {
         </section>
 
         <section className="w-full max-w-6xl border-t border-white/10 pt-12">
-          <div className="mb-7 text-center"><p className="font-mono text-[10px] uppercase tracking-[.4em] text-fuchsia-300">Brain Arcade</p><h2 className="mt-2 text-3xl font-black uppercase">Words and logic</h2></div>
+          <div className="mb-7 text-center"><h2 className="text-4xl font-black uppercase tracking-tight text-fuchsia-300 sm:text-5xl">Brain Arcade</h2></div>
           <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-5">
           {BRAIN_ARCADE_GAMES.map((game) => (
             <div
@@ -181,6 +182,7 @@ export default function HomePage() {
           ))}
           </div>
         </section>
+
       </main>
 
       {/* INSTRUCTION MODAL */}
@@ -211,7 +213,7 @@ export default function HomePage() {
                   <Target className="text-cyan-500 shrink-0" />
                   <div>
                     <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">How to Play</h4>
-                    <p className="text-zinc-400 text-sm leading-relaxed">{showInfo.instructions.howToPlay}</p>
+                    <p className="whitespace-pre-line text-zinc-400 text-sm leading-relaxed">{showInfo.instructions.howToPlay}</p>
                   </div>
                 </div>
 
@@ -219,7 +221,7 @@ export default function HomePage() {
                   <Users className="text-purple-500 shrink-0" />
                   <div>
                     <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">Multiplayer Mechanics</h4>
-                    <p className="text-zinc-400 text-sm leading-relaxed">{showInfo.instructions.multiplayer}</p>
+                    <p className="whitespace-pre-line text-zinc-400 text-sm leading-relaxed">{showInfo.instructions.multiplayer}</p>
                   </div>
                 </div>
 
@@ -312,7 +314,9 @@ export default function HomePage() {
       <footer className="py-16 border-t border-white/5 bg-black/80 backdrop-blur-md px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16 border-b border-white/5 pb-12">
-            <h2 className="text-zinc-400 font-mono text-[11px] uppercase tracking-[0.3em] mb-6">Search Engine Protocol // Indexing Data</h2>
+            <p className="mb-6 max-w-3xl text-sm leading-relaxed text-zinc-400">
+              FunFriday is a multiplayer game hub for cricket quizzes, football quizzes, Bollywood quizzes, WWE quizzes, India quizzes, Wordle Rush, and Sudoku. Create a room, invite friends, and play together in real time.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-zinc-500 text-[10px] uppercase tracking-widest leading-relaxed font-bold">
               <div>
                 <p className="mb-4 text-white">The Ultimate Multiplayer Arcade</p>
