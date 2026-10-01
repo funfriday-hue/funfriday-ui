@@ -83,9 +83,9 @@ export default function ResultModal<T extends {
             key={idx} 
             initial={{ x: -10, opacity: 0 }} 
             animate={{ x: 0, opacity: 1 }}
-            className={`flex items-center justify-between rounded-xl border transition-all ${sidePanel ? "p-3" : "p-4"} ${boxStyles}`}
+            className={`flex items-center justify-between rounded-xl border transition-all ${sidePanel ? "px-3 py-2.5" : "p-4"} ${boxStyles}`}
           >
-            <div className="font-black uppercase tracking-tight text-white select-none">
+            <div className={`${sidePanel ? "text-sm" : ""} font-black uppercase tracking-tight text-white select-none`}>
               {name}
               {isLocal && <span className="ml-2 text-[8px] font-mono text-zinc-500 underline">You</span>}
             </div>

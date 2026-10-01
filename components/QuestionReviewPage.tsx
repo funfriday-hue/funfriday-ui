@@ -19,6 +19,9 @@ type Question = {
   status: string;
   model?: string | null;
   createdAt: string;
+  similarQuestionKey?: string | null;
+  similarQuestionPrompt?: string | null;
+  similarityScore?: number | null;
   answers: Answer[];
 };
 type EditableAnswer = Omit<Answer, "aliases"> & { aliasesText: string };
@@ -452,6 +455,26 @@ export default function QuestionReviewPage({ mode }: { mode: Mode }) {
                       {new Date(question.createdAt).toLocaleString()} ·{" "}
                       {question.status}
                     </p>
+                    {isDraftMode && question.similarQuestionPrompt && (
+                      <div className="mt-3 rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                        <p className="font-black uppercase tracking-wide text-amber-300">
+                          Similar question detected
+                          {question.similarityScore != null &&
+                            ` · ${Math.round(question.similarityScore * 100)}% match`}
+                        </p>
+                        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-200/80">
+                          Similar to
+                        </p>
+                        <p className="mt-1 text-zinc-100">
+                          {question.similarQuestionPrompt}
+                        </p>
+                        {question.similarQuestionKey && (
+                          <p className="mt-1 font-mono text-[10px] text-zinc-400">
+                            {question.similarQuestionKey}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
                     <div>
