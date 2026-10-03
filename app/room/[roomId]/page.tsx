@@ -165,6 +165,10 @@ export default function RoomPage() {
   }
 
   const currentStatus = cleanPublic?.status || "WAITING";
+  const roomPlayers = cleanPublic?.players || [];
+  const isRoomHost = cleanPublic?.host?.id === playerId
+    || cleanPublic?.hostId === playerId
+    || roomPlayers.some((player: any) => String(player?.id) === String(playerId) && (player?.host === true || player?.isHost === true));
 
 // roomId/page.tsx
 
@@ -191,6 +195,7 @@ return (
             stompClient={stompClientRef.current!}
             publicState={cleanPublic}
             privateState={privateData?.body ? JSON.parse(privateData.body) : privateData}
+            isHost={isRoomHost}
           />
         ) : resolvedGameType === "DOBBLE" ? (
           <Dobble
@@ -217,6 +222,7 @@ return (
             wordError={wordError}
             secondsLeft={serverSecondsLeft}
             synchronizedPlayers={synchronizedPlayers}
+            isHost={isRoomHost}
           />
       </div>
           

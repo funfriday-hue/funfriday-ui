@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { RotateCcw, Eraser, StickyNote, Flag, LayoutGrid, Clock, AlertTriangle, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import AdSlot from "../AdSlot";
+import { ADSENSE_SLOTS } from "@/lib/adsense";
 
 interface SudokuProps {
   publicState: any;
@@ -11,9 +15,10 @@ interface SudokuProps {
   playerId: string; 
   stompClient: any;
   roomId: string;
+  isHost: boolean;
 }
 
-export default function Sudoku({ publicState, privateState, playerName, playerId, stompClient, roomId }: SudokuProps) {
+export default function Sudoku({ publicState, privateState, playerName, playerId, stompClient, roomId, isHost }: SudokuProps) {
   const [localBoard, setLocalBoard] = useState<number[][]>([]);
   const [notesMode, setNotesMode] = useState(false);
   const [notes, setNotes] = useState<Record<string, number[]>>({});
@@ -320,9 +325,22 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
 
       {isMeFinished && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 overflow-y-auto">
-          <div className="bg-zinc-950 border border-white/10 p-8 rounded-[40px] text-center max-w-md w-full shadow-2xl my-auto">
-            <h2 className="text-3xl font-black mb-6 uppercase italic text-white tracking-tighter">Protocol Ended</h2>
-            <div className="space-y-3 mb-6">
+          <Link href="/" aria-label="Return to FunFriday home" className="absolute left-5 top-5 transition-transform hover:scale-105 active:scale-95">
+            <Image
+              src="/logo.png"
+              alt="FunFriday"
+              width={90}
+              height={90}
+              className="h-auto w-16 drop-shadow-2xl md:w-20"
+              priority
+            />
+          </Link>
+          <div className="my-auto flex h-[calc(100dvh-3rem)] w-full max-w-[calc(100vw-3rem)] flex-col overflow-y-auto rounded-[40px] border border-white/10 bg-zinc-950 p-8 text-center shadow-2xl">
+            <h2 className="mb-6 text-3xl font-black uppercase italic tracking-tighter text-white">Protocol Ended</h2>
+            <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(320px,5fr)_minmax(480px,7fr)]">
+              <section className="flex min-h-0 flex-col rounded-2xl border border-white/10 bg-white/[.03] p-5">
+                <p className="mb-4 text-left text-[10px] font-black uppercase tracking-[.25em] text-zinc-500">Final rankings</p>
+                <div className="flex-1 space-y-3 overflow-y-auto pr-2 no-scrollbar">
               {[...playersList]
                 .sort((a: any, b: any) => {
                   const aProgress = a.stats?.percentSolved || 0;
@@ -344,7 +362,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
                   return (
                     <div
                       key={p.id}
-                      className={`flex justify-between items-center p-5 rounded-2xl border ${
+                      className={`flex items-center justify-between rounded-2xl border p-4 ${
                         isLocal 
                           ? "bg-cyan-500/10 border-cyan-500/30" 
                           : "border-white/5 bg-white/5"
@@ -369,14 +387,22 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
                     </div>
                   );
                 })}
-            </div>
+                </div>
+                <div className="mt-4 shrink-0 border-t border-white/10 pt-4">
+                  <AdSlot
+                    slot={ADSENSE_SLOTS.results}
+                    fixedSize={{ width: 300, height: 250 }}
+                    minHeightClassName="h-[250px]"
+                  />
+                </div>
+              </section>
 
-            {/* NEW: Displays Correct Solution if backend sent a targetBoard */}
-            {privateGameData?.targetBoard && (
-              <div className="mb-8 p-4 bg-zinc-900/30 border border-zinc-800/80 rounded-3xl flex flex-col items-center">
-                <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <aside className="min-h-0 overflow-y-auto rounded-2xl border border-white/10 bg-white/[.03] p-5">
+                <h3 className="mb-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
                   <Eye size={12} /> Correct Solution Matrix
                 </h3>
+            {privateGameData?.targetBoard ? (
+              <div className="flex min-h-[260px] flex-col items-center justify-center rounded-3xl border border-zinc-800/80 bg-zinc-900/30 p-4">
                 <div 
                   className={`grid border-2 border-zinc-700 bg-zinc-950 p-1 rounded-xl
                     ${size === 6 ? "grid-cols-6" : "grid-cols-9"}`}
@@ -409,14 +435,28 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
                   )}
                 </div>
               </div>
+            ) : (
+              <p className="py-16 text-sm text-zinc-500">The solution will appear here when available.</p>
             )}
+              </aside>
+            </div>
 
-            <button
-              onClick={() => (window.location.href = "/")}
-              className="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-[10px] tracking-widest active:scale-98 transition-all shadow-xl"
-            >
-              Exit to Lobby
-            </button>
+            <div className={`mt-6 grid gap-3 ${isHost ? "sm:grid-cols-2" : ""}`}>
+              {isHost && (
+                <button
+                  onClick={() => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" })}
+                  className="w-full rounded-xl bg-cyan-400 py-4 text-[10px] font-black uppercase tracking-widest text-black transition-all shadow-xl hover:bg-cyan-300 active:scale-98"
+                >
+                  Restart
+                </button>
+              )}
+              <button
+                onClick={() => (window.location.href = "/")}
+                className="w-full rounded-xl bg-white py-4 text-[10px] font-black uppercase tracking-widest text-black shadow-xl transition-all hover:bg-cyan-500 active:scale-98"
+              >
+                Return to Home
+              </button>
+            </div>
           </div>
         </div>
       )}

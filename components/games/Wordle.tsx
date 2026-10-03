@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import ResultModal, { formatTimeElapsed } from '../ResultModal';
+import AdSlot from '../AdSlot';
 import { getSortedPlayers } from "@/utils/gameRules";
+import { ADSENSE_SLOTS } from "@/lib/adsense";
 
 const MAX_TRIES_PER_WORD = 6;
 
@@ -23,9 +25,10 @@ interface WordleProps {
   wordError: { id: number; message: string } | null; 
   secondsLeft: number; 
   synchronizedPlayers: any[];
+  isHost: boolean;
 }
 
-export default function Wordle({ roomId, playerName, playerId, stompClient, publicState, privateState, wordError, secondsLeft, synchronizedPlayers }: WordleProps) {
+export default function Wordle({ roomId, playerName, playerId, stompClient, publicState, privateState, wordError, secondsLeft, synchronizedPlayers, isHost }: WordleProps) {
   const [currentGuess, setCurrentGuess] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -359,11 +362,28 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
 {/* UPDATE IN WORDLE.TSX */}
 <ResultModal 
   isOpen={showResultModal}
+  title="Wordle Rush complete"
   players={sortedPlayersForModal}
   localPlayerName={playerName}
   localPlayerId={playerId}
   targetWord={privateGameData?.targetWord} // 👈 Pass the word
   myStatus={myStatus}                     // 👈 Pass the fail/complete status
+  onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined}
+  restartLabel="Restart"
+  adSlot={<AdSlot slot={ADSENSE_SLOTS.results} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" />}
+  sidePanel={
+    <div className="flex min-h-full flex-col items-center justify-center text-center">
+      <p className="text-[10px] font-black uppercase tracking-[.3em] text-zinc-500">Word solution</p>
+      <div className={`mt-4 rounded-2xl border px-7 py-5 ${myStatus === "FAILED" ? "border-rose-500/30 bg-rose-500/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
+        <p className={`font-mono text-3xl font-black uppercase tracking-[.22em] ${myStatus === "FAILED" ? "text-rose-400" : "text-emerald-400"}`}>
+          {privateGameData?.targetWord || "Completed"}
+        </p>
+      </div>
+      <p className="mt-5 max-w-sm text-sm text-zinc-400">
+        {myStatus === "FAILED" ? "This was the word to solve." : "Your final Wordle Rush result."}
+      </p>
+    </div>
+  }
   renderStats={(p: any) => (
     <div className="text-right">
       <p className="text-white font-black">{p.score} Solved</p>

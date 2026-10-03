@@ -142,7 +142,7 @@ export default function ResultModal<T extends {
             </h2>
             
             {/* TARGET WORD REVEAL PANEL */}
-            {didLocalPlayerFail && targetWord && (
+            {!sidePanel && didLocalPlayerFail && targetWord && (
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -174,6 +174,7 @@ export default function ResultModal<T extends {
               <>
                 <div className="mb-10">{playerStandings}</div>
                 {children}
+                {adSlot && <div className="mb-6">{adSlot}</div>}
                 {actions}
               </>
             )}
