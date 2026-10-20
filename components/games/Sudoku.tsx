@@ -194,7 +194,7 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
       </div>
 
       <div 
-        className={`grid border-[3px] border-zinc-700 bg-zinc-900 shadow-2xl transition-all duration-500 
+        className={`grid overflow-hidden rounded-2xl border-[4px] border-zinc-500 bg-zinc-500 shadow-[0_20px_55px_rgba(0,0,0,0.55)] transition-all duration-500 
           ${size === 6 ? "grid-cols-6" : "grid-cols-9"} 
           ${isMeFinished ? 'opacity-20 blur-xl pointer-events-none' : ''}`}
       >
@@ -205,25 +205,30 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
           
           const colBlockDelimiter = size === 6 ? 3 : 3;
           const rowBlockDelimiter = size === 6 ? 2 : 3;
+          const alternateBlock = (Math.floor(rIdx / rowBlockDelimiter) + Math.floor(cIdx / colBlockDelimiter)) % 2 === 1;
 
           const bR = (cIdx + 1) % colBlockDelimiter === 0 && cIdx !== (size - 1) 
-            ? "border-r-[3px] border-zinc-700" 
-            : "border-r border-zinc-800/50";
+            ? "border-r-[4px] border-zinc-400" 
+            : "border-r border-zinc-600";
 
           const bB = (rIdx + 1) % rowBlockDelimiter === 0 && rIdx !== (size - 1) 
-            ? "border-b-[3px] border-zinc-700" 
-            : "border-b border-zinc-800/50";
+            ? "border-b-[4px] border-zinc-400" 
+            : "border-b border-zinc-600";
+
+          const cellBackground = isInitial
+            ? (alternateBlock ? "bg-zinc-700" : "bg-zinc-800")
+            : (alternateBlock ? "bg-[#13171d]" : "bg-[#0d1014]");
 
           return (
             <div 
               key={key} 
               onClick={() => setFocusedCell(key)}
-              className={`relative w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center cursor-pointer transition-all duration-75
+              className={`relative h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center cursor-pointer transition-colors duration-100
                 ${bR} ${bB} 
-                ${isFocused ? (isInitial ? "bg-zinc-700" : "bg-cyan-500 text-black") : (isInitial ? "bg-zinc-800/50" : "bg-black hover:bg-zinc-900")}
+                ${isFocused ? (isInitial ? "bg-zinc-600 ring-2 ring-inset ring-cyan-300" : "bg-cyan-400 text-black ring-2 ring-inset ring-cyan-100") : `${cellBackground} hover:bg-zinc-700`}
               `}
             >
-              <span className={`text-xl font-black select-none ${isInitial ? "text-zinc-500" : isFocused ? "text-black" : "text-white"}`}>
+              <span className={`text-xl font-black select-none ${isInitial ? (isFocused ? "text-white" : "text-zinc-100") : isFocused ? "text-black" : "text-cyan-200"}`}>
                 {cell === 0 ? "" : cell}
               </span>
 
