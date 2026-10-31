@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Users, ArrowRight, Sliders, Copy, Check, Info, X } from "lucide-react";
 
 interface GameModeOption {
@@ -12,6 +12,8 @@ interface WaitingRoomProps {
   roomData: any; 
   currentPlayerId: string;
   stompClient: any;
+  quickQuiz?: boolean;
+  soloPlay?: boolean;
 }
 
 const FALLBACK_MODES: Record<string, GameModeOption[]> = {
@@ -43,7 +45,9 @@ const FALLBACK_MODES: Record<string, GameModeOption[]> = {
 export default function WaitingRoom({
   roomData,
   currentPlayerId,
-  stompClient
+  stompClient,
+  quickQuiz = false,
+  soloPlay = false
 }: WaitingRoomProps) {
   
   const [selectedModeId, setSelectedModeId] = useState<string>("");
@@ -52,6 +56,7 @@ export default function WaitingRoom({
   const [turnSeconds, setTurnSeconds] = useState(60);
   const [questionCount, setQuestionCount] = useState(1);
   const [copied, setCopied] = useState(false);
+  const autoStartRef = useRef(false);
 
   // Safely grab the room payload root
   const actualRoom = roomData?.room || roomData?.gameState || roomData?.data || roomData;
@@ -115,6 +120,28 @@ export default function WaitingRoom({
     });
   };
 
+  // Solo modes use the trusted WebSocket start flow after the host joins. Quick
+  // Quiz has its fixed one-question configuration; other solo games use their
+  // default available preset.
+  useEffect(() => {
+    if ((!quickQuiz && !soloPlay) || autoStartRef.current || !stompClient || !roomId || !selectedModeId) return;
+    if (quickQuiz && roomType !== "QUIZ_ROYALE") return;
+    autoStartRef.current = true;
+    console.info("Starting automatic solo game", { roomId, roomType, selectedModeId, quickQuiz });
+    stompClient.publish({
+      destination: `/app/game/${roomId}/start`,
+      body: JSON.stringify({
+        gameMode: selectedModeId,
+        genericProperties: quickQuiz ? {
+          strikeLimit: 3,
+          playMode: "ALL_PLAY",
+          turnSeconds: 60,
+          questionCount: 1
+        } : {}
+      })
+    });
+  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId]);
+
   const handleKickPlayer = (playerId: string, playerName: string) => {
     if (!amIActuallyHost || !stompClient || !roomId) return;
     if (!window.confirm(`Remove ${playerName} from this room?`)) return;
@@ -152,8 +179,15 @@ export default function WaitingRoom({
           </div>
         </header>
 
+        {(quickQuiz || soloPlay) && (
+          <div className="relative z-10 mb-6 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-4 text-center">
+            <p className="text-[10px] font-black uppercase tracking-[.25em] text-cyan-300">{quickQuiz ? "Quick Quiz loading" : "Solo game loading"}</p>
+            <p className="mt-2 text-sm font-bold text-zinc-200">{quickQuiz ? "1 question · 60 seconds · All Play · 3 strikes" : "Starting your private game…"}</p>
+          </div>
+        )}
+
         {/* LOBBY HOST CONFIGURATION PANEL */}
-        {amIActuallyHost && modes.length > 0 && (
+        {!quickQuiz && !soloPlay && amIActuallyHost && modes.length > 0 && (
           <div className="relative z-10 bg-zinc-900/20 border border-white/5 rounded-3xl p-5 mb-6 text-left backdrop-blur-md">
             <div className="flex items-center gap-2 text-zinc-500 mb-3 border-b border-white/5 pb-2">
               <Sliders size={12} className="text-cyan-500" />
@@ -284,7 +318,7 @@ export default function WaitingRoom({
         </div>
 
         {/* ACTION / COOLDOWN DISPATCH BAR */}
-        <div className="relative z-10 pt-4 border-t border-zinc-900">
+        {!quickQuiz && !soloPlay && <div className="relative z-10 pt-4 border-t border-zinc-900">
           {amIActuallyHost ? (
             <button
               onClick={handleLaunchClick}
@@ -302,7 +336,7 @@ export default function WaitingRoom({
               <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Awaiting Host Authorization</span>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

@@ -6,8 +6,6 @@ import Link from "next/link";
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Users, Trophy, Target } from "lucide-react";
-import AdSlot from "@/components/AdSlot";
-import { ADSENSE_SLOTS } from "@/lib/adsense";
 
 const BRAIN_ARCADE_GAMES = [
   { 
@@ -75,22 +73,43 @@ export default function HomePage() {
   }, []);
 
   const triggerJoinFlow = () => {
+    setSelectedGame("quiz_royale");
     setIsJoining(true);
+    setRoomInput("");
     setShowModal(true);
   };
 
   const triggerCreateFlow = (gameId: string, quizCategory?: string) => {
+    if (name.trim()) {
+      void handleLaunch("START", { gameId, quizCategory, quickQuiz: false });
+      return;
+    }
     setSelectedGame(gameId);
     if (quizCategory) setSelectedQuizCategory(quizCategory);
     setIsJoining(false);
     setShowModal(true);
   };
 
-  const handleLaunch = async (type: "START" | "JOIN") => {
+  const triggerQuizCategory = (category: string) => {
+    setSelectedGame("quiz_royale");
+    setSelectedQuizCategory(category);
+    setIsJoining(false);
+    setRoomInput("");
+    setShowModal(true);
+  };
+
+  const handleLaunch = async (
+    type: "START" | "JOIN",
+    launchOptions: { gameId?: string; quizCategory?: string; quickQuiz?: boolean } = {}
+  ) => {
     if (!name.trim()) {
       alert("Identification required.");
       return;
     }
+
+    const gameId = launchOptions.gameId ?? selectedGame;
+    const quizCategory = launchOptions.quizCategory ?? selectedQuizCategory;
+    const quickQuiz = launchOptions.quickQuiz ?? false;
 
     Cookies.set("playerName", name.trim(), { expires: 1, path: "/" });
     setIsLoading(true);
@@ -105,7 +124,7 @@ export default function HomePage() {
         : `${baseApiUrl}/rooms/join/${roomInput.trim().toUpperCase()}`;
 
       const payload = type === "START" 
-        ? { type: selectedGame.toUpperCase(), host: name.trim(), ...(selectedGame === "quiz_royale" ? { gameMode: selectedQuizCategory } : {}) }
+        ? { type: gameId.toUpperCase(), host: name.trim(), ...(gameId === "quiz_royale" ? { gameMode: quizCategory } : {}) }
         : { playerName: name.trim() };
 
       const response = await fetch(endpoint, {
@@ -122,7 +141,7 @@ export default function HomePage() {
 
       const roomData = await response.json();
       sessionStorage.setItem("funfriday-room-admission", roomData.roomId);
-      router.push(`/room/${roomData.roomId}`);
+      router.push(`/room/${roomData.roomId}${quickQuiz ? "?quick=1" : ""}`);
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Server Error: Ensure backend daemon is operational.");
@@ -134,42 +153,40 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col font-sans overflow-x-hidden">
       
       {/* HEADER */}
-      <header className="px-6 pb-4 pt-20 text-center">
+      <header className="px-6 pb-5 pt-24 text-center sm:pt-28">
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-7xl font-black italic tracking-tighter text-white mb-4"
+          className="mb-2 text-5xl font-black italic tracking-tighter text-white sm:text-7xl"
         >
           FUN<span className="text-cyan-500">FRIDAY</span>
         </motion.h1>
-        <div className="relative mt-8 flex justify-center gap-4">
-            <button 
-                onClick={triggerJoinFlow}
-                className="group inline-flex items-center gap-3 rounded-xl border border-cyan-300 bg-cyan-400 px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,0.22)] transition-all hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_12px_30px_rgba(34,211,238,0.38)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0b] active:translate-y-0"
-            >
-                <Users size={16} strokeWidth={2.75} aria-hidden="true" />
-                Join with Code
-                <span className="text-base leading-none transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
-            </button>
-            <AdSlot slot={ADSENSE_SLOTS.home} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" className="absolute left-1/2 top-1/2 ml-60 h-[250px] w-[300px] -translate-y-1/2" />
-        </div>
+        <p className="mx-auto max-w-xl text-sm text-zinc-400 sm:text-base">Jump into a one-minute solo challenge or create a multiplayer room for your crew.</p>
       </header>
 
-      {/* QUIZ ROYALE */}
+      {/* PLAY SECTIONS */}
       <main className="flex-grow flex flex-col items-center px-6 pb-20">
-        <section className="w-full max-w-6xl mb-16">
-          <div className="mb-7 text-center"><h2 className="text-4xl font-black uppercase tracking-tight text-cyan-400 sm:text-5xl">Quiz Royale</h2><button type="button" onClick={() => setShowInfo(QUIZ_ROYALE_GUIDE)} className="mt-4 text-[10px] font-black uppercase tracking-widest text-cyan-300 underline decoration-cyan-400/50 underline-offset-4 hover:text-white">How to play</button></div>
-          <div className="mx-auto flex w-full max-w-6xl flex-nowrap justify-center gap-5 overflow-x-auto pb-2">
+        <section className="w-full max-w-7xl">
+          <div className="text-center">
+            <h2 className="text-3xl font-black uppercase leading-none text-cyan-300 sm:text-4xl">Quiz Royale</h2>
+            <p className="mt-3 text-sm text-zinc-400">Choose a category, then play a quick solo quiz or create a room for friends.</p>
+            <div className="mt-3 flex items-center justify-center gap-4">
+              <button type="button" onClick={() => setShowInfo(QUIZ_ROYALE_GUIDE)} className="text-[10px] font-black uppercase tracking-widest text-cyan-300 underline decoration-cyan-400/50 underline-offset-4 hover:text-white">How to play</button>
+              <button type="button" onClick={triggerJoinFlow} className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-300/50 bg-fuchsia-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-fuchsia-100 transition-colors hover:bg-fuchsia-400/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"><Users size={15} /> Join with code</button>
+            </div>
+          </div>
+          <div className="mx-auto mt-5 grid w-full max-w-5xl grid-cols-5 gap-3 sm:gap-5">
             {QUIZ_CATEGORIES.map((category) => (
-              <button key={category.id} type="button" onClick={() => triggerCreateFlow("quiz_royale", category.id)} className="size-48 shrink-0 sm:size-52 rounded-[2rem] border border-white/10 bg-zinc-900 p-4 text-center text-xl font-black uppercase tracking-wide transition-colors hover:border-cyan-400 hover:bg-cyan-400/10 hover:text-cyan-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
-                <span className="block text-3xl">{category.icon}</span><span className="mt-4 block">{category.name}</span>
+              <button key={category.id} type="button" onClick={() => triggerQuizCategory(category.id)} className="group rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-5 text-center transition-all hover:-translate-y-1 hover:border-cyan-300 hover:bg-cyan-400/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 sm:py-7" aria-label={`Choose ${category.name} quiz`}>
+                <span className="block text-2xl sm:text-3xl">{category.icon}</span><span className="mt-3 block text-[9px] font-black uppercase tracking-tight text-zinc-200 group-hover:text-cyan-200 sm:text-xs">{category.name}</span>
               </button>
             ))}
           </div>
         </section>
 
-        <section className="w-full max-w-6xl border-t border-white/10 pt-12">
-          <div className="mb-7 text-center"><h2 className="text-4xl font-black uppercase tracking-tight text-fuchsia-300 sm:text-5xl">Brain Arcade</h2></div>
+        {/* MIND GAMES */}
+        <section className="mt-12 w-full max-w-7xl border-t border-white/10 pt-10">
+          <div className="mb-7 text-center"><p className="text-[10px] font-black uppercase tracking-[.3em] text-fuchsia-300">Solo or multiplayer</p><h2 className="mt-2 text-4xl font-black uppercase tracking-tight text-fuchsia-300 sm:text-5xl">Mind Games</h2></div>
           <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-5">
           {BRAIN_ARCADE_GAMES.map((game) => (
             <div
@@ -204,7 +221,7 @@ export default function HomePage() {
               </button>
 
               <div className="mb-8">
-                <span className="text-cyan-500 font-mono text-[10px] uppercase tracking-[0.4em]">Multiplayer Protocol</span>
+                <span className="text-cyan-500 font-mono text-[10px] uppercase tracking-[0.4em]">{showInfo.id === "quick_quiz_guide" ? "Solo Challenge" : "Multiplayer Protocol"}</span>
                 <h2 className="text-4xl font-black italic tracking-tighter uppercase text-white mt-2">{showInfo.name} Guide</h2>
               </div>
 
@@ -220,7 +237,7 @@ export default function HomePage() {
                 <div className="flex gap-4 p-5 bg-white/5 rounded-2xl border border-white/5">
                   <Users className="text-purple-500 shrink-0" />
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">Multiplayer Mechanics</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">{showInfo.id === "quick_quiz_guide" ? "Game Format" : "Multiplayer Mechanics"}</h4>
                     <p className="whitespace-pre-line text-zinc-400 text-sm leading-relaxed">{showInfo.instructions.multiplayer}</p>
                   </div>
                 </div>
@@ -258,15 +275,27 @@ export default function HomePage() {
             >
               <button 
                 onClick={() => setShowModal(false)}
-                className="absolute top-6 right-8 text-zinc-500 hover:text-white font-mono disabled:opacity-50"
+                className="absolute top-6 right-6 text-zinc-500 hover:text-white font-mono disabled:opacity-50"
                 disabled={isLoading}
               >
                 [X]
               </button>
 
-              <h2 className="text-zinc-500 font-mono text-[10px] uppercase tracking-[0.4em] mb-6 text-center">
-                {isJoining ? "Sector Ingress" : `Identity Verification: ${selectedGame === "quiz_royale" ? `Quiz Royale · ${selectedQuizCategory}` : selectedGame.toUpperCase()}`}
-              </h2>
+              <div className="mb-6 flex min-h-10 items-center gap-3 pr-8">
+                <h2 className="flex-1 text-left font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
+                  {isJoining ? "Join a room" : selectedGame === "quiz_royale" ? `Quiz Royale · ${selectedQuizCategory}` : `Identity Verification: ${selectedGame.toUpperCase()}`}
+                </h2>
+                {selectedGame === "quiz_royale" && !isJoining && (
+                  <button
+                    type="button"
+                    onClick={() => setIsJoining(true)}
+                    disabled={isLoading}
+                    className="shrink-0 rounded-xl border border-fuchsia-300/50 px-3 py-2 text-[9px] font-black uppercase tracking-wide text-fuchsia-200 transition-colors hover:bg-fuchsia-400/15 hover:text-white disabled:opacity-50"
+                  >
+                    Join with code
+                  </button>
+                )}
+              </div>
               
               <div className="space-y-6">
                 <input
@@ -283,25 +312,55 @@ export default function HomePage() {
                       type="text"
                       placeholder="ROOM CODE"
                       value={roomInput}
+                      disabled={isLoading}
                       onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
                       className="w-full bg-black border border-white/5 rounded-2xl px-6 py-4 text-cyan-400 focus:outline-none focus:border-cyan-500 font-black text-center tracking-[0.5em]"
                     />
                 )}
 
-                <button
-                    onClick={() => handleLaunch(isJoining ? "JOIN" : "START")}
-                    disabled={isLoading}
-                    className="w-full py-4 bg-white text-black font-black rounded-2xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm"
-                >
-                    {isLoading ? "SYNCHRONIZING..." : isJoining ? "Enter Arena" : "Create New Room"}
-                </button>
+                {isJoining ? (
+                  <button
+                      onClick={() => handleLaunch("JOIN")}
+                      disabled={isLoading || !roomInput.trim()}
+                      className="w-full py-4 bg-white text-black font-black rounded-2xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                      {isLoading ? "SYNCHRONIZING..." : "Start Game"}
+                  </button>
+                ) : selectedGame === "quiz_royale" ? (
+                  <div className="flex flex-col gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleLaunch("START", { gameId: "quiz_royale", quizCategory: selectedQuizCategory, quickQuiz: true })}
+                      disabled={isLoading || !name.trim()}
+                      className="w-full rounded-xl bg-cyan-400 py-4 text-sm font-black uppercase tracking-widest text-black transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Start Quick Quiz
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLaunch("START", { gameId: "quiz_royale", quizCategory: selectedQuizCategory, quickQuiz: false })}
+                      disabled={isLoading || !name.trim()}
+                      className="w-full rounded-xl bg-white py-4 text-sm font-black uppercase tracking-widest text-black transition-colors hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Create Multiplayer Room
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                      onClick={() => handleLaunch("START")}
+                      disabled={isLoading || !name.trim()}
+                      className="w-full py-4 bg-white text-black font-black rounded-2xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                      {isLoading ? "SYNCHRONIZING..." : "Create New Room"}
+                  </button>
+                )}
 
                 {!isLoading && (
                     <button
-                        onClick={() => setIsJoining(!isJoining)}
-                        className="w-full text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+                        onClick={() => setIsJoining(false)}
+                        className={`${isJoining ? "w-full" : "hidden"} text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors`}
                     >
-                        {isJoining ? "Back to Create Room" : "Or Join Existing Room"}
+                        {selectedGame === "quiz_royale" ? "Back to category choices" : "Back to create room"}
                     </button>
                 )}
               </div>

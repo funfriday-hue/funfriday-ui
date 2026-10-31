@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
@@ -21,6 +21,9 @@ const SOCKET_URL = typeof window !== "undefined" && window.location.hostname !==
 export default function RoomPage() {
   const { roomId } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const quickQuiz = searchParams.get("quick") === "1";
+  const soloPlay = searchParams.get("solo") === "1";
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [admissionChecked, setAdmissionChecked] = useState(false);
@@ -186,6 +189,8 @@ return (
             roomData={cleanPublic} 
             currentPlayerId={playerId} 
             stompClient={stompClientRef.current} 
+            quickQuiz={quickQuiz}
+            soloPlay={soloPlay}
           />
         ) : resolvedGameType === "SUDOKU" ? (
           <Sudoku 
