@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { ArrowRight, BookOpen, Crown, Play, Users, X, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Check, Crown, Play, Users, X, Zap } from "lucide-react";
 import type { QuizPageConfig } from "@/lib/quiz-pages";
 import { QUIZ_PAGES } from "@/lib/quiz-pages";
 
 type LaunchMode = "solo" | "multiplayer" | "join";
-type QuizQuestionSummary = { questionKey: string; questionType: string; prompt: string };
+type QuizQuestionProgress = { bestCorrectAnswers: number; answerCount: number; completed: boolean };
+type QuizQuestionSummary = { questionKey: string; questionType: string; prompt: string; progress?: QuizQuestionProgress | null };
 
 export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) {
   const router = useRouter();
@@ -153,7 +154,14 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
                     <button type="button" onClick={() => startSelectedQuestion(question.questionKey)} className="flex w-full flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 text-left transition-colors hover:border-cyan-400/40 focus:outline-none focus-visible:border-cyan-300 sm:flex-row sm:items-center">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-400/10 text-xs font-black text-cyan-300">{index + 1}</span>
                       <span className="min-w-0">
-                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.16em] text-fuchsia-300"><BookOpen size={13} /> {question.questionType.replaceAll("_", " ")}</span>
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black uppercase tracking-[.16em]">
+                          <span className="flex items-center gap-2 text-fuchsia-300"><BookOpen size={13} /> {question.questionType.replaceAll("_", " ")}</span>
+                          {question.progress?.completed ? (
+                            <span className="flex items-center gap-1 text-emerald-400"><Check size={14} strokeWidth={3} /> Completed · {question.progress.answerCount}/{question.progress.answerCount}</span>
+                          ) : question.progress ? (
+                            <span className="flex items-center gap-1 text-amber-300"><span className="h-2 w-2 rounded-full bg-amber-300" /> Best: {question.progress.bestCorrectAnswers}/{question.progress.answerCount}</span>
+                          ) : null}
+                        </span>
                         <span className="mt-1 block text-sm font-bold leading-relaxed text-zinc-100">{question.prompt}</span>
                       </span>
                     </button>
