@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { ArrowRight, Crown, Home, Play, Users, X, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Crown, Play, Users, X, Zap } from "lucide-react";
 import type { QuizPageConfig } from "@/lib/quiz-pages";
 import { QUIZ_PAGES } from "@/lib/quiz-pages";
 
 type LaunchMode = "solo" | "multiplayer" | "join";
+type QuizQuestionSummary = { questionKey: string; questionType: string; prompt: string };
 
 export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) {
   const router = useRouter();
@@ -17,6 +18,9 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
   const [mode, setMode] = useState<LaunchMode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [questions, setQuestions] = useState<QuizQuestionSummary[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(page.gameType === "QUIZ_ROYALE");
+  const [selectedQuestionKey, setSelectedQuestionKey] = useState<string | null>(null);
 
   useEffect(() => {
     const syncName = () => setName(Cookies.get("playerName") ?? "");
@@ -25,17 +29,32 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
     return () => window.removeEventListener("funfriday-auth-updated", syncName);
   }, []);
 
+  useEffect(() => {
+    if (page.gameType !== "QUIZ_ROYALE") return;
+    let cancelled = false;
+    const baseApiUrl = window.location.hostname === "localhost" ? "http://localhost:8080/api" : "/api";
+    fetch(`${baseApiUrl}/quiz-questions/${page.quizCategory}`, { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load questions.");
+        return response.json() as Promise<QuizQuestionSummary[]>;
+      })
+      .then((catalog) => { if (!cancelled) setQuestions(catalog); })
+      .catch(() => { if (!cancelled) setQuestions([]); })
+      .finally(() => { if (!cancelled) setQuestionsLoading(false); });
+    return () => { cancelled = true; };
+  }, [page.gameType, page.quizCategory]);
+
   const openLaunch = (nextMode: LaunchMode) => {
     setMode(nextMode);
     setError("");
   };
 
-  const handleLaunch = async () => {
+  const handleLaunch = async (launchMode: LaunchMode | null = mode, questionKey: string | null = selectedQuestionKey) => {
     if (!name.trim()) {
       setError("Enter your name to continue.");
       return;
     }
-    if (mode === "join" && !roomCode.trim()) {
+    if (launchMode === "join" && !roomCode.trim()) {
       setError("Enter a room code to join.");
       return;
     }
@@ -45,7 +64,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
     const baseApiUrl = window.location.hostname === "localhost" ? "http://localhost:8080/api" : "/api";
 
     try {
-      const joining = mode === "join";
+      const joining = launchMode === "join";
       const response = await fetch(
         joining ? `${baseApiUrl}/rooms/join/${roomCode.trim().toUpperCase()}` : `${baseApiUrl}/rooms/create`,
         {
@@ -68,7 +87,9 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
       const room = await response.json();
       Cookies.set("playerName", name.trim(), { expires: 1, path: "/" });
       sessionStorage.setItem("funfriday-room-admission", room.roomId);
-      const autoStart = mode === "solo" ? (page.gameType === "QUIZ_ROYALE" ? "?quick=1" : "?solo=1") : "";
+      const autoStart = launchMode === "solo"
+        ? (page.gameType === "QUIZ_ROYALE" ? `?quick=1${questionKey ? `&question=${encodeURIComponent(questionKey)}` : ""}` : "?solo=1")
+        : "";
       router.push(`/room/${room.roomId}${autoStart}`);
     } catch (launchError) {
       setError(launchError instanceof Error ? launchError.message : "Unable to start this game.");
@@ -76,39 +97,74 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
     }
   };
 
-  return (
-    <main className="min-h-screen bg-[#0a0a0b] px-6 pb-20 pt-28 text-white sm:pt-32">
-      <div className="mx-auto w-full max-w-6xl">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">
-          <Link href="/" className="inline-flex items-center gap-1 transition-colors hover:text-cyan-300"><Home size={12} /> Home</Link>
-          <span aria-hidden="true">/</span>
-          <span className="text-zinc-300">{page.name}</span>
-        </nav>
+  const startSelectedQuestion = (questionKey: string) => {
+    if (name.trim()) {
+      void handleLaunch("solo", questionKey);
+      return;
+    }
+    setSelectedQuestionKey(questionKey);
+    openLaunch("solo");
+  };
 
-        <header className="mt-7 text-center">
-          <span className="text-4xl" aria-hidden="true">{page.icon}</span>
-          <h1 className="mt-3 text-4xl font-black uppercase tracking-tight sm:text-6xl">{page.name}</h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">{page.description}</p>
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] px-6 pb-20 pt-20 text-white sm:pt-24">
+      <div className="mx-auto w-full max-w-6xl">
+        <header className="text-center">
+          <span className="text-3xl" aria-hidden="true">{page.icon}</span>
+          <h1 className="mt-2 text-3xl font-black uppercase tracking-tight sm:text-5xl">{page.name}</h1>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">{page.description}</p>
         </header>
 
-        <section aria-label={`${page.name} play options`} className="mt-12 grid gap-5 lg:grid-cols-2">
-          <article className="rounded-[2rem] border border-cyan-400/30 bg-gradient-to-br from-cyan-400/10 to-zinc-950 p-7 sm:p-9">
+        <section aria-label={`${page.name} play options`} className="mt-8 grid gap-4 lg:grid-cols-2">
+          <article className="rounded-[2rem] border border-cyan-400/30 bg-gradient-to-br from-cyan-400/10 to-zinc-950 p-5 sm:p-6">
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[.24em] text-cyan-300"><Zap size={16} /> Single Player</div>
-            <h2 className="mt-5 text-3xl font-black uppercase">Play on your own</h2>
-            <p className="mt-4 min-h-12 text-sm leading-relaxed text-zinc-300">{page.singlePlayerDescription}</p>
-            <button type="button" onClick={() => openLaunch("solo")} className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-400 px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-cyan-300"><Play size={16} fill="currentColor" /> Start single player <ArrowRight size={16} /></button>
+            <h2 className="mt-3 text-xl font-black uppercase">Play on your own</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">{page.singlePlayerDescription}</p>
+            <button type="button" onClick={() => openLaunch("solo")} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-400 px-5 py-3.5 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-cyan-300"><Play size={16} fill="currentColor" /> Start single player <ArrowRight size={16} /></button>
           </article>
 
-          <article className="rounded-[2rem] border border-fuchsia-300/30 bg-gradient-to-br from-fuchsia-400/10 to-zinc-950 p-7 sm:p-9">
+          <article className="rounded-[2rem] border border-fuchsia-300/30 bg-gradient-to-br from-fuchsia-400/10 to-zinc-950 p-5 sm:p-6">
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[.24em] text-fuchsia-300"><Crown size={16} /> Multiplayer</div>
-            <h2 className="mt-5 text-3xl font-black uppercase">Play with friends</h2>
-            <p className="mt-4 min-h-12 text-sm leading-relaxed text-zinc-300">{page.multiplayerDescription}</p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => openLaunch("multiplayer")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-400 px-4 py-4 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-fuchsia-300"><Users size={16} /> Create room</button>
-              <button type="button" onClick={() => openLaunch("join")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-fuchsia-300/50 bg-fuchsia-400/10 px-4 py-4 text-xs font-black uppercase tracking-widest transition-colors hover:bg-fuchsia-400/20"><Users size={16} /> Join with code</button>
+            <h2 className="mt-3 text-xl font-black uppercase">Play with friends</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">{page.multiplayerDescription}</p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button type="button" onClick={() => openLaunch("multiplayer")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-400 px-4 py-3.5 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-fuchsia-300"><Users size={16} /> Create room</button>
+              <button type="button" onClick={() => openLaunch("join")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-fuchsia-300/50 bg-fuchsia-400/10 px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors hover:bg-fuchsia-400/20"><Users size={16} /> Join with code</button>
             </div>
           </article>
         </section>
+
+        {page.gameType === "QUIZ_ROYALE" && (
+          <section aria-labelledby="question-catalog-title" className="mx-auto mt-8 max-w-5xl">
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[.26em] text-cyan-300">{page.name} catalogue</p>
+                <h2 id="question-catalog-title" className="mt-1 text-2xl font-black uppercase sm:text-3xl">Questions to play</h2>
+              </div>
+              {!questionsLoading && <span className="text-xs font-bold text-zinc-400">{questions.length} active {questions.length === 1 ? "question" : "questions"}</span>}
+            </div>
+
+            {questionsLoading ? (
+              <div className="mt-5 grid gap-3">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-20 animate-pulse rounded-2xl border border-white/5 bg-white/5" />)}</div>
+            ) : questions.length ? (
+              <ol className="mt-3 grid gap-2">
+                {questions.map((question, index) => (
+                  <li key={question.questionKey}>
+                    <button type="button" onClick={() => startSelectedQuestion(question.questionKey)} className="flex w-full flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 text-left transition-colors hover:border-cyan-400/40 focus:outline-none focus-visible:border-cyan-300 sm:flex-row sm:items-center">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-400/10 text-xs font-black text-cyan-300">{index + 1}</span>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.16em] text-fuchsia-300"><BookOpen size={13} /> {question.questionType.replaceAll("_", " ")}</span>
+                        <span className="mt-1 block text-sm font-bold leading-relaxed text-zinc-100">{question.prompt}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-6 text-sm text-zinc-400">New questions for this category will appear here once they are approved.</p>
+            )}
+          </section>
+        )}
 
         <article className="mx-auto mt-16 max-w-4xl border-t border-white/10 pt-12 text-center">
           <p className="text-[10px] font-black uppercase tracking-[.28em] text-cyan-300">FunFriday game guide</p>
@@ -138,7 +194,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
               <label className="block"><span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Your name</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} disabled={loading} maxLength={40} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 font-semibold outline-none focus:border-cyan-400" placeholder="Enter your name" /></label>
               {mode === "join" && <label className="block"><span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Room code</span><input value={roomCode} onChange={(event) => setRoomCode(event.target.value.toUpperCase())} disabled={loading} maxLength={12} className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-center font-mono font-black tracking-[.25em] outline-none focus:border-cyan-400" placeholder="ABC123" /></label>}
               {error && <p className="text-sm text-rose-300">{error}</p>}
-              <button type="button" onClick={handleLaunch} disabled={loading} className="w-full rounded-xl bg-cyan-400 px-4 py-4 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-cyan-300 disabled:opacity-50">{loading ? "Starting…" : mode === "join" ? "Join room" : mode === "solo" ? "Start game" : "Create room"}</button>
+              <button type="button" onClick={() => void handleLaunch()} disabled={loading} className="w-full rounded-xl bg-cyan-400 px-4 py-4 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-cyan-300 disabled:opacity-50">{loading ? "Starting…" : mode === "join" ? "Join room" : mode === "solo" ? "Start game" : "Create room"}</button>
             </div>
           </section>
         </div>

@@ -14,6 +14,7 @@ interface WaitingRoomProps {
   stompClient: any;
   quickQuiz?: boolean;
   soloPlay?: boolean;
+  selectedQuestionKey?: string;
 }
 
 const FALLBACK_MODES: Record<string, GameModeOption[]> = {
@@ -47,7 +48,8 @@ export default function WaitingRoom({
   currentPlayerId,
   stompClient,
   quickQuiz = false,
-  soloPlay = false
+  soloPlay = false,
+  selectedQuestionKey
 }: WaitingRoomProps) {
   
   const [selectedModeId, setSelectedModeId] = useState<string>("");
@@ -136,11 +138,12 @@ export default function WaitingRoom({
           strikeLimit: 3,
           playMode: "ALL_PLAY",
           turnSeconds: 60,
-          questionCount: 1
+          questionCount: 1,
+          ...(selectedQuestionKey ? { questionKey: selectedQuestionKey } : {})
         } : {}
       })
     });
-  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId]);
+  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId, selectedQuestionKey]);
 
   const handleKickPlayer = (playerId: string, playerName: string) => {
     if (!amIActuallyHost || !stompClient || !roomId) return;

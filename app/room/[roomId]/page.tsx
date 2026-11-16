@@ -24,6 +24,7 @@ export default function RoomPage() {
   const searchParams = useSearchParams();
   const quickQuiz = searchParams.get("quick") === "1";
   const soloPlay = searchParams.get("solo") === "1";
+  const selectedQuestionKey = searchParams.get("question") ?? undefined;
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [admissionChecked, setAdmissionChecked] = useState(false);
@@ -191,6 +192,7 @@ return (
             stompClient={stompClientRef.current} 
             quickQuiz={quickQuiz}
             soloPlay={soloPlay}
+            selectedQuestionKey={selectedQuestionKey}
           />
         ) : resolvedGameType === "SUDOKU" ? (
           <Sudoku 
