@@ -237,7 +237,7 @@ return (
     </main>
 
     {/* RIGHT SIDEBAR LAYOUT CONTAINER */}
-    <aside className="w-80 border-l border-zinc-900 bg-black hidden lg:block overflow-y-auto shrink-0">
+    <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-zinc-900 bg-black pt-16 lg:block">
       <Leaderboard scoreBoard={sortedPlayers} localPlayerName={playerName} activePlayerId={cleanPublic?.gameSpecificPublicData?.currentPlayerId} gameType={resolvedGameType} />
     </aside>
   </div>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { QUIZ_PAGES } from '@/lib/quiz-pages';
+import GoogleSignIn from '@/components/GoogleSignIn';
 
 export default function Navbar() {
   return (
@@ -35,6 +36,9 @@ export default function Navbar() {
               </Link>
             ))}
           </div>
+        </div>
+        <div className="hidden shrink-0 sm:block">
+          <GoogleSignIn />
         </div>
       </div>
     </nav>
