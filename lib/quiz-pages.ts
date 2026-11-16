@@ -3,7 +3,7 @@ export type QuizPageConfig = {
   name: string;
   icon: string;
   gameType: "QUIZ_ROYALE" | "WORDLE" | "SUDOKU";
-  quizCategory?: "CRICKET" | "FOOTBALL" | "BOLLYWOOD" | "WWE" | "INDIA";
+  quizCategory?: "CRICKET" | "FOOTBALL" | "BOLLYWOOD" | "WWE" | "INDIA" | "CHESS";
   description: string;
   singlePlayerDescription: string;
   multiplayerDescription: string;
@@ -92,6 +92,22 @@ export const QUIZ_PAGES: QuizPageConfig[] = [
       "Take a quick solo India quiz or invite friends to a private multiplayer room for a shared trivia challenge."
     ],
     keywords: ["India quiz", "Indian general knowledge quiz", "India trivia"]
+  },
+  {
+    slug: "chess-quiz",
+    name: "Chess Quiz",
+    icon: "♟️",
+    gameType: "QUIZ_ROYALE",
+    quizCategory: "CHESS",
+    description: "Play a chess quiz online with questions about world champions, tournaments, records, openings, and chess history.",
+    singlePlayerDescription: "Take on one random chess question in a fast 60-second solo challenge.",
+    multiplayerDescription: "Create a Chess Quiz Royale room and challenge friends live.",
+    seoHeading: "Chess quiz for players and fans",
+    seoParagraphs: [
+      "Test your chess knowledge with questions about world champions, grandmasters, major tournaments, ratings, records, and landmark games.",
+      "Play a fast solo chess quiz or create a private multiplayer room to compete with friends in real time."
+    ],
+    keywords: ["chess quiz", "chess trivia", "online chess quiz"]
   },
   {
     slug: "wordle-quiz",

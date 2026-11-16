@@ -40,6 +40,7 @@ const QUIZ_CATEGORIES = [
   { id: "BOLLYWOOD", name: "Bollywood", icon: "🎬" },
   { id: "WWE", name: "WWE", icon: "🤼" },
   { id: "INDIA", name: "India", icon: "🇮🇳" },
+  { id: "CHESS", name: "Chess", icon: "♟️" },
 ];
 
 const QUIZ_CATEGORY_ROUTES: Record<string, string> = {
@@ -47,7 +48,8 @@ const QUIZ_CATEGORY_ROUTES: Record<string, string> = {
   FOOTBALL: "/football-quiz",
   BOLLYWOOD: "/bollywood-quiz",
   WWE: "/wwe-quiz",
-  INDIA: "/india-quiz"
+  INDIA: "/india-quiz",
+  CHESS: "/chess-quiz"
 };
 
 const QUIZ_ROYALE_GUIDE = {
@@ -181,7 +183,7 @@ export default function HomePage() {
               <button type="button" onClick={triggerJoinFlow} className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-300/50 bg-fuchsia-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-fuchsia-100 transition-colors hover:bg-fuchsia-400/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"><Users size={15} /> Join with code</button>
             </div>
           </div>
-          <div className="mx-auto mt-5 grid w-full max-w-5xl grid-cols-5 gap-3 sm:gap-5">
+          <div className="mx-auto mt-5 grid w-full max-w-6xl grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-6">
             {QUIZ_CATEGORIES.map((category) => (
               <button key={category.id} type="button" onClick={() => triggerQuizCategory(category.id)} className="group rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-5 text-center transition-all hover:-translate-y-1 hover:border-cyan-300 hover:bg-cyan-400/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 sm:py-7" aria-label={`Choose ${category.name} quiz`}>
                 <span className="block text-2xl sm:text-3xl">{category.icon}</span><span className="mt-3 block text-[9px] font-black uppercase tracking-tight text-zinc-200 group-hover:text-cyan-200 sm:text-xs">{category.name}</span>
@@ -380,7 +382,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-16 border-b border-white/5 pb-12">
             <p className="mb-6 max-w-3xl text-sm leading-relaxed text-zinc-400">
-              FunFriday is a multiplayer game hub for cricket quizzes, football quizzes, Bollywood quizzes, WWE quizzes, India quizzes, Wordle Rush, and Sudoku. Create a room, invite friends, and play together in real time.
+              FunFriday is a multiplayer game hub for cricket quizzes, football quizzes, Bollywood quizzes, WWE quizzes, India quizzes, chess quizzes, Wordle Rush, and Sudoku. Create a room, invite friends, and play together in real time.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-zinc-500 text-[10px] uppercase tracking-widest leading-relaxed font-bold">
               <div>

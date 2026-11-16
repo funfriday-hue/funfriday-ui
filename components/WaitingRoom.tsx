@@ -39,7 +39,8 @@ const FALLBACK_MODES: Record<string, GameModeOption[]> = {
     { modeId: "FOOTBALL", displayName: "Football" },
     { modeId: "BOLLYWOOD", displayName: "Bollywood" },
     { modeId: "WWE", displayName: "WWE" },
-    { modeId: "INDIA", displayName: "India" }
+    { modeId: "INDIA", displayName: "India" },
+    { modeId: "CHESS", displayName: "Chess" }
   ]
 };
 

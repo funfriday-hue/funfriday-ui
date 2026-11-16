@@ -278,6 +278,7 @@ export default function CreateQuestionPage() {
                 <option>BOLLYWOOD</option>
                 <option>WWE</option>
                 <option>INDIA</option>
+                <option>CHESS</option>
               </select>
             </label>
             <label className="text-sm font-bold">
