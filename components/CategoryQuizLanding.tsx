@@ -11,6 +11,7 @@ import { QUIZ_PAGES } from "@/lib/quiz-pages";
 type LaunchMode = "solo" | "multiplayer" | "join";
 type QuizQuestionProgress = { bestCorrectAnswers: number; answerCount: number; completed: boolean };
 type QuizQuestionSummary = { questionKey: string; questionType: string; prompt: string; progress?: QuizQuestionProgress | null };
+type QuizQuestionCatalog = { questions: QuizQuestionSummary[]; lockedQuestionCount: number; signedIn: boolean };
 
 export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) {
   const router = useRouter();
@@ -22,9 +23,14 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
   const [questions, setQuestions] = useState<QuizQuestionSummary[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(page.gameType === "QUIZ_ROYALE");
   const [selectedQuestionKey, setSelectedQuestionKey] = useState<string | null>(null);
+  const [lockedQuestionCount, setLockedQuestionCount] = useState(0);
+  const [catalogRefresh, setCatalogRefresh] = useState(0);
 
   useEffect(() => {
-    const syncName = () => setName(Cookies.get("playerName") ?? "");
+    const syncName = () => {
+      setName(Cookies.get("playerName") ?? "");
+      setCatalogRefresh((current) => current + 1);
+    };
     syncName();
     window.addEventListener("funfriday-auth-updated", syncName);
     return () => window.removeEventListener("funfriday-auth-updated", syncName);
@@ -37,17 +43,33 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
     fetch(`${baseApiUrl}/quiz-questions/${page.quizCategory}`, { credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load questions.");
-        return response.json() as Promise<QuizQuestionSummary[]>;
+        return response.json() as Promise<QuizQuestionCatalog>;
       })
-      .then((catalog) => { if (!cancelled) setQuestions(catalog); })
-      .catch(() => { if (!cancelled) setQuestions([]); })
+      .then((catalog) => {
+        if (cancelled) return;
+        setQuestions(catalog.questions);
+        setLockedQuestionCount(catalog.lockedQuestionCount);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setQuestions([]);
+        setLockedQuestionCount(0);
+      })
       .finally(() => { if (!cancelled) setQuestionsLoading(false); });
     return () => { cancelled = true; };
-  }, [page.gameType, page.quizCategory]);
+  }, [catalogRefresh, page.gameType, page.quizCategory]);
 
   const openLaunch = (nextMode: LaunchMode) => {
     setMode(nextMode);
     setError("");
+  };
+
+  const launchWithSavedName = (nextMode: LaunchMode) => {
+    if (name.trim()) {
+      void handleLaunch(nextMode);
+      return;
+    }
+    openLaunch(nextMode);
   };
 
   const handleLaunch = async (launchMode: LaunchMode | null = mode, questionKey: string | null = selectedQuestionKey) => {
@@ -107,6 +129,8 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
     openLaunch("solo");
   };
 
+  const requestGoogleLogin = () => window.dispatchEvent(new Event("funfriday-request-google-login"));
+
   return (
     <main className="min-h-screen bg-[#0a0a0b] px-6 pb-20 pt-20 text-white sm:pt-24">
       <div className="mx-auto w-full max-w-6xl">
@@ -119,9 +143,9 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
         <section aria-label={`${page.name} play options`} className="mt-8 grid gap-4 lg:grid-cols-2">
           <article className="rounded-[2rem] border border-cyan-400/30 bg-gradient-to-br from-cyan-400/10 to-zinc-950 p-5 sm:p-6">
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[.24em] text-cyan-300"><Zap size={16} /> Single Player</div>
-            <h2 className="mt-3 text-xl font-black uppercase">Play on your own</h2>
+            <h2 className="mt-3 text-xl font-black uppercase">Play random</h2>
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">{page.singlePlayerDescription}</p>
-            <button type="button" onClick={() => openLaunch("solo")} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-400 px-5 py-3.5 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-cyan-300"><Play size={16} fill="currentColor" /> Start single player <ArrowRight size={16} /></button>
+            <button type="button" onClick={() => launchWithSavedName("solo")} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-400 px-5 py-3.5 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-cyan-300"><Play size={16} fill="currentColor" /> Start random <ArrowRight size={16} /></button>
           </article>
 
           <article className="rounded-[2rem] border border-fuchsia-300/30 bg-gradient-to-br from-fuchsia-400/10 to-zinc-950 p-5 sm:p-6">
@@ -129,7 +153,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
             <h2 className="mt-3 text-xl font-black uppercase">Play with friends</h2>
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">{page.multiplayerDescription}</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => openLaunch("multiplayer")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-400 px-4 py-3.5 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-fuchsia-300"><Users size={16} /> Create room</button>
+              <button type="button" onClick={() => launchWithSavedName("multiplayer")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-400 px-4 py-3.5 text-xs font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-fuchsia-300"><Users size={16} /> Create room</button>
               <button type="button" onClick={() => openLaunch("join")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-fuchsia-300/50 bg-fuchsia-400/10 px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors hover:bg-fuchsia-400/20"><Users size={16} /> Join with code</button>
             </div>
           </article>
@@ -142,7 +166,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
                 <p className="text-[10px] font-black uppercase tracking-[.26em] text-cyan-300">{page.name} catalogue</p>
                 <h2 id="question-catalog-title" className="mt-1 text-2xl font-black uppercase sm:text-3xl">Questions to play</h2>
               </div>
-              {!questionsLoading && <span className="text-xs font-bold text-zinc-400">{questions.length} active {questions.length === 1 ? "question" : "questions"}</span>}
+              {!questionsLoading && <span className="text-xs font-bold text-zinc-400">{questions.length + lockedQuestionCount} active {questions.length + lockedQuestionCount === 1 ? "question" : "questions"}</span>}
             </div>
 
             {questionsLoading ? (
@@ -165,6 +189,22 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
                         <span className="mt-1 block text-sm font-bold leading-relaxed text-zinc-100">{question.prompt}</span>
                       </span>
                     </button>
+                  </li>
+                ))}
+                {lockedQuestionCount > 0 && (
+                  <li className="py-2 text-center">
+                    <button type="button" onClick={requestGoogleLogin} className="rounded-xl border border-cyan-300/40 bg-cyan-300/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-cyan-200 transition-colors hover:bg-cyan-300/20">Log in to unlock {lockedQuestionCount} more {lockedQuestionCount === 1 ? "question" : "questions"}</button>
+                  </li>
+                )}
+                {Array.from({ length: lockedQuestionCount }).map((_, index) => (
+                  <li key={`locked-${index}`} aria-hidden="true">
+                    <div className="flex w-full flex-col gap-3 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/60 p-4 text-left sm:flex-row sm:items-center">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-black text-zinc-600">{questions.length + index + 1}</span>
+                      <span className="min-w-0 blur-[5px]">
+                        <span className="block h-3 w-24 rounded bg-fuchsia-300/40" />
+                        <span className="mt-2 block h-4 w-[min(38rem,80vw)] max-w-full rounded bg-zinc-200/60" />
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ol>

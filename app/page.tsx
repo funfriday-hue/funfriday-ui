@@ -42,6 +42,14 @@ const QUIZ_CATEGORIES = [
   { id: "INDIA", name: "India", icon: "🇮🇳" },
 ];
 
+const QUIZ_CATEGORY_ROUTES: Record<string, string> = {
+  CRICKET: "/cricket-quiz",
+  FOOTBALL: "/football-quiz",
+  BOLLYWOOD: "/bollywood-quiz",
+  WWE: "/wwe-quiz",
+  INDIA: "/india-quiz"
+};
+
 const QUIZ_ROYALE_GUIDE = {
   id: "quiz_royale_guide",
   name: "Quiz Royale",
@@ -93,11 +101,7 @@ export default function HomePage() {
   };
 
   const triggerQuizCategory = (category: string) => {
-    setSelectedGame("quiz_royale");
-    setSelectedQuizCategory(category);
-    setIsJoining(false);
-    setRoomInput("");
-    setShowModal(true);
+    router.push(QUIZ_CATEGORY_ROUTES[category] ?? "/");
   };
 
   const handleLaunch = async (

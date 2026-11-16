@@ -52,6 +52,8 @@ export default function GoogleSignIn() {
 
   useEffect(() => {
     let cancelled = false;
+    const requestGoogleLogin = () => window.google?.accounts.id.prompt();
+    window.addEventListener("funfriday-request-google-login", requestGoogleLogin);
     const initialize = async () => {
       try {
         const configResponse = await fetch(`${apiBase()}/auth/google/config`, { credentials: "include" });
@@ -113,7 +115,10 @@ export default function GoogleSignIn() {
       }
     };
     void initialize();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.removeEventListener("funfriday-request-google-login", requestGoogleLogin);
+    };
   }, []);
 
   if (name) {
