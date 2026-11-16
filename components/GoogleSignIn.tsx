@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 
 declare global {
@@ -9,7 +9,7 @@ declare global {
       accounts: {
         id: {
           initialize: (options: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
-          renderButton: (element: HTMLElement, options: Record<string, string | number | boolean>) => void;
+          prompt: () => void;
         };
       };
     };
@@ -19,7 +19,6 @@ declare global {
 const apiBase = () => (window.location.hostname === "localhost" ? "http://localhost:8080/api" : "/api");
 
 export default function GoogleSignIn() {
-  const buttonRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState("");
   const [available, setAvailable] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +68,6 @@ export default function GoogleSignIn() {
           return;
         }
         if (!clientId || cancelled) return;
-        setAvailable(true);
 
         await new Promise<void>((resolve, reject) => {
           if (window.google) return resolve();
@@ -87,7 +85,7 @@ export default function GoogleSignIn() {
           script.onerror = () => reject(new Error("Google sign-in failed to load."));
           document.head.appendChild(script);
         });
-        if (cancelled || !buttonRef.current || !window.google) return;
+        if (cancelled || !window.google) return;
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: async ({ credential }) => {
@@ -109,10 +107,7 @@ export default function GoogleSignIn() {
             }
           }
         });
-        buttonRef.current.replaceChildren();
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: "outline", size: "medium", type: "icon", shape: "circle"
-        });
+        setAvailable(true);
       } catch (setupError) {
         if (!cancelled) setError(setupError instanceof Error ? setupError.message : "Google sign-in is unavailable.");
       }
@@ -123,17 +118,30 @@ export default function GoogleSignIn() {
 
   if (name) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="max-w-28 truncate text-xs font-bold text-cyan-200" title={name}>Hi, {name}</span>
-        <button onClick={() => void signOut()} className="rounded-md border border-white/15 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-zinc-300 transition hover:border-rose-300 hover:text-rose-200">Sign out</button>
+      <div className="group relative">
+        <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-cyan-200 transition hover:bg-white/10" title={name}>
+          <span className="max-w-28 truncate">Hi, {name}</span><span aria-hidden="true" className="text-[9px]">▾</span>
+        </button>
+        <div className="invisible absolute right-0 top-full z-50 mt-1 w-28 rounded-lg border border-white/10 bg-zinc-950 p-1 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+          <button onClick={() => void signOut()} className="w-full rounded-md px-2 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-300 transition hover:bg-white/10 hover:text-rose-200">Sign out</button>
+        </div>
       </div>
     );
   }
   if (!available && !error) return null;
   return (
     <div className="flex flex-col items-end gap-1">
-      <div ref={buttonRef} aria-label="Sign in with Google" />
-      <span className="text-[9px] font-black uppercase tracking-wide text-zinc-400">Sign in</span>
+      <button
+        onClick={() => window.google?.accounts.id.prompt()}
+        className="group flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-gradient-to-r from-cyan-400/10 to-zinc-950 px-3 py-2 shadow-[0_0_18px_rgba(34,211,238,.08)] transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-[0_0_22px_rgba(34,211,238,.22)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+        aria-label="Sign in with Google"
+        title="Sign in with Google"
+      >
+        <span className="text-[10px] font-black uppercase tracking-[.12em] text-cyan-100">Log in</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white p-0.5 shadow-sm transition group-hover:scale-110">
+          <img src="/google-g.svg" alt="Google" className="h-full w-full" />
+        </span>
+      </button>
       {error && <span className="max-w-44 text-right text-[10px] text-rose-300">{error}</span>}
     </div>
   );
