@@ -68,8 +68,10 @@ export default function HomePage() {
   const [selectedQuizCategory, setSelectedQuizCategory] = useState<string>("CRICKET");
 
   useEffect(() => {
-    const savedName = Cookies.get("playerName");
-    if (savedName) setName(savedName);
+    const syncName = () => setName(Cookies.get("playerName") ?? "");
+    syncName();
+    window.addEventListener("funfriday-auth-updated", syncName);
+    return () => window.removeEventListener("funfriday-auth-updated", syncName);
   }, []);
 
   const triggerJoinFlow = () => {
