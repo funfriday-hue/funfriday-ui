@@ -40,6 +40,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
     if (page.gameType !== "QUIZ_ROYALE") return;
     let cancelled = false;
     const baseApiUrl = window.location.hostname === "localhost" ? "http://localhost:8080/api" : "/api";
+    const catalogueRequestStartedAt = performance.now();
     fetch(`${baseApiUrl}/quiz-questions/${page.quizCategory}`, { credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load questions.");
@@ -49,6 +50,15 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
         if (cancelled) return;
         setQuestions(catalog.questions);
         setLockedQuestionCount(catalog.lockedQuestionCount);
+        void fetch(`${baseApiUrl}/metrics/category-catalogue-load`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: page.quizCategory,
+            durationMilliseconds: Math.round(performance.now() - catalogueRequestStartedAt)
+          }),
+          keepalive: true
+        }).catch(() => undefined);
       })
       .catch(() => {
         if (cancelled) return;
