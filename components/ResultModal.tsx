@@ -34,6 +34,8 @@ interface ResultModalProps<T> {
   adSlot?: React.ReactNode;
   onRestart?: () => void;
   restartLabel?: string;
+  returnHref?: string;
+  returnLabel?: string;
 }
 
 // Broadened generic constraints to gracefully absorb both nested or flat player models
@@ -56,7 +58,9 @@ export default function ResultModal<T extends {
   sidePanel,
   adSlot,
   onRestart,
-  restartLabel = "Restart match"
+  restartLabel = "Restart match",
+  returnHref = "/",
+  returnLabel = "Return to Home"
 }: ResultModalProps<T>) {
 
   // Auto-detect if the local player failed from the incoming players data array
@@ -110,10 +114,10 @@ export default function ResultModal<T extends {
       )}
 
       <button 
-        onClick={() => window.location.href = '/'} 
+        onClick={() => window.location.href = returnHref} 
         className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-cyan-500 transition-all uppercase tracking-widest text-sm"
       >
-        Return to Home
+        {returnLabel}
       </button>
     </div>
   );

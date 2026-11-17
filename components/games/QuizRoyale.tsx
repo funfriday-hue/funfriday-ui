@@ -39,6 +39,14 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
   const hasPassedCurrentChronologyItem = Boolean(data.chronologyPassedPlayerIds?.includes(playerId));
   const acceptedAnswerCount = data.acceptedAnswers?.length || 0;
   const isRankedList = data.questionType === "RANKED_LIST";
+  const categoryReturn = {
+    CRICKET: { href: "/cricket-quiz", label: "Return to Cricket Quiz" },
+    FOOTBALL: { href: "/football-quiz", label: "Return to Football Quiz" },
+    BOLLYWOOD: { href: "/bollywood-quiz", label: "Return to Bollywood Quiz" },
+    WWE: { href: "/wwe-quiz", label: "Return to WWE Quiz" },
+    INDIA: { href: "/india-quiz", label: "Return to India Quiz" },
+    CHESS: { href: "/chess-quiz", label: "Return to Chess Quiz" }
+  }[data.category || ""];
   const acceptedAnswerCountRef = useRef(acceptedAnswerCount);
   const answersListRef = useRef<HTMLDivElement>(null);
   const rankedAnswerRefs = useRef(new Map<number, HTMLParagraphElement>());
@@ -119,7 +127,7 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
       {data.lastEvent && <p className="mt-5 text-center text-sm font-bold text-zinc-400">{data.lastEvent}</p>}
     </section>
     <aside className="flex max-h-[420px] flex-col rounded-[2rem] border border-white/10 bg-zinc-950 p-5"><div className="flex items-center justify-between gap-3"><h2 className="text-[10px] font-mono uppercase tracking-[.3em] text-zinc-500">Answers found</h2>{(data.questionType === "LIST" || isRankedList) && typeof data.totalAnswerCount === "number" && <span className="shrink-0 font-mono text-xs font-bold text-cyan-300">{acceptedAnswerCount}/{data.totalAnswerCount}</span>}</div><div ref={answersListRef} className="mt-4 min-h-0 space-y-3 overflow-y-auto pr-2">{isRankedList ? (data.rankedAnswers || []).map(row => <p ref={node => { if (node) rankedAnswerRefs.current.set(row.rank, node); else rankedAnswerRefs.current.delete(row.rank); }} key={row.rank} className={`text-sm font-semibold ${row.revealed ? "text-white" : "text-zinc-500"}`}>{row.rank}. {row.revealed ? `${row.answer}${row.value ? ` · ${row.value}` : ""}` : "_______"}</p>) : <>{(data.acceptedAnswers || []).map((accepted, index) => <p key={`${index}-${accepted}`} className="text-sm font-semibold text-white">{index + 1}. {accepted}</p>)}{!(data.acceptedAnswers || []).length && <p className="text-sm text-zinc-600">No accepted answers yet.</p>}</>}</div></aside>
-  </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined} restartLabel="Restart" renderStats={player => <p className="text-sm font-black text-cyan-300">{player.score} points</p>} adSlot={<AdSlot slot={ADSENSE_SLOTS.results} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" />} sidePanel={<>
+  </div><ResultModal isOpen={isFinished} title="Quiz Royale complete" players={sortedPlayers} localPlayerName={playerName} localPlayerId={playerId} onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined} restartLabel="Restart" returnHref={categoryReturn?.href} returnLabel={categoryReturn?.label} renderStats={player => <p className="text-sm font-black text-cyan-300">{player.score} points</p>} adSlot={<AdSlot slot={ADSENSE_SLOTS.results} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" />} sidePanel={<>
     <div>
       <div className="mb-3 flex items-center justify-between gap-3"><p className="text-[10px] font-mono font-bold uppercase tracking-[.22em] text-zinc-500">Answer review</p><p className="text-[10px] font-bold text-zinc-500">Green: answered · Red: missed</p></div>
       <div className="space-y-2">
@@ -128,7 +136,7 @@ export default function QuizRoyale({ roomId, playerId, playerName, stompClient, 
           return <div key={result.questionNumber} className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
             <button type="button" onClick={() => setOpenResultQuestion(isOpen ? null : result.questionNumber)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[.04]">
               <span className="min-w-0"><span className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300">Question {result.questionNumber}</span><span className="mt-1 block truncate text-sm font-bold text-white">{result.prompt}</span></span>
-              <span className="shrink-0 text-lg text-zinc-400">{isOpen ? "−" : "+"}</span>
+              <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-cyan-300">{isOpen ? "Hide answers" : "Show answers"}</span>
             </button>
             {isOpen && <div className="max-h-48 space-y-2 overflow-y-auto border-t border-white/10 p-3 pr-2">
               {result.answers.map((resultAnswer, index) => {

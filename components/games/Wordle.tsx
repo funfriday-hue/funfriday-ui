@@ -370,6 +370,8 @@ export default function Wordle({ roomId, playerName, playerId, stompClient, publ
   myStatus={myStatus}                     // 👈 Pass the fail/complete status
   onRestart={isHost ? () => stompClient.publish({ destination: `/app/game/${roomId}/lobby`, body: "{}" }) : undefined}
   restartLabel="Restart"
+  returnHref="/wordle-quiz"
+  returnLabel="Return to Wordle Rush"
   adSlot={<AdSlot slot={ADSENSE_SLOTS.results} fixedSize={{ width: 300, height: 250 }} minHeightClassName="h-[250px]" />}
   sidePanel={
     <div className="flex min-h-full flex-col items-center justify-center text-center">

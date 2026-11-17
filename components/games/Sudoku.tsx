@@ -456,10 +456,10 @@ export default function Sudoku({ publicState, privateState, playerName, playerId
                 </button>
               )}
               <button
-                onClick={() => (window.location.href = "/")}
+                onClick={() => (window.location.href = "/sudoku-quiz")}
                 className="w-full rounded-xl bg-white py-4 text-[10px] font-black uppercase tracking-widest text-black shadow-xl transition-all hover:bg-cyan-500 active:scale-98"
               >
-                Return to Home
+                Return to Sudoku
               </button>
             </div>
           </div>
