@@ -169,7 +169,7 @@ export default function HomePage() {
         >
           FUN<span className="text-cyan-500">FRIDAY</span>
         </motion.h1>
-        <p className="mx-auto max-w-xl text-sm text-zinc-400 sm:text-base">Jump into a one-minute solo challenge or create a multiplayer room for your crew.</p>
+        <p className="mx-auto max-w-xl text-sm text-zinc-400 sm:text-base">Jump into a quick solo challenge or create a multiplayer room for your crew.</p>
       </header>
 
       {/* PLAY SECTIONS */}
