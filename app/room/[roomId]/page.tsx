@@ -171,6 +171,10 @@ export default function RoomPage() {
   }
 
   const currentStatus = cleanPublic?.status || "WAITING";
+  // The global navigation is fixed. These two games place their timer/progress
+  // controls at the top of their own canvas, so reserve the nav's 64px height.
+  const needsGameNavClearance = currentStatus !== "WAITING"
+    && (resolvedGameType === "SUDOKU" || resolvedGameType === "WORDLE");
   const roomPlayers = cleanPublic?.players || [];
   const isRoomHost = cleanPublic?.host?.id === playerId
     || cleanPublic?.hostId === playerId
@@ -182,7 +186,7 @@ return (
   <div className={`flex w-full bg-black text-white font-sans select-none ${currentStatus === "WAITING" ? "min-h-[100dvh] overflow-y-auto" : "h-[100dvh] overflow-hidden"}`}>
     
     {/* MAIN GAME ARENA CONTAINER */}
-    <main className={`relative flex-grow min-h-0 flex flex-col items-stretch justify-between pt-6 ${currentStatus === "WAITING" ? "overflow-visible" : "overflow-hidden"}`}> 
+    <main className={`relative flex-grow min-h-0 flex flex-col items-stretch justify-between ${needsGameNavClearance ? "pt-16" : "pt-6"} ${currentStatus === "WAITING" ? "overflow-visible" : "overflow-hidden"}`}> 
       
       {/* GAME WRAPPER */}
       <div className={`flex-1 min-h-0 w-full flex flex-col items-stretch px-4 pb-4 ${currentStatus === "WAITING" ? "justify-start overflow-visible" : "justify-center overflow-hidden"}`}>
