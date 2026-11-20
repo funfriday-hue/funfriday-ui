@@ -7,6 +7,7 @@ import Cookies from "js-cookie";
 import { ArrowRight, BookOpen, Check, Crown, Play, Users, X, Zap } from "lucide-react";
 import type { QuizPageConfig } from "@/lib/quiz-pages";
 import { QUIZ_PAGES } from "@/lib/quiz-pages";
+import SudokuPuzzleCatalogue from "@/components/SudokuPuzzleCatalogue";
 
 type LaunchMode = "solo" | "multiplayer" | "join";
 type QuizQuestionProgress = { bestCorrectAnswers: number; answerCount: number; completed: boolean };
@@ -23,6 +24,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
   const [questions, setQuestions] = useState<QuizQuestionSummary[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(page.gameType === "QUIZ_ROYALE");
   const [selectedQuestionKey, setSelectedQuestionKey] = useState<string | null>(null);
+  const [selectedSudokuPuzzle, setSelectedSudokuPuzzle] = useState<{ id: number; size: 6 | 9 } | null>(null);
   const [lockedQuestionCount, setLockedQuestionCount] = useState(0);
   const [catalogRefresh, setCatalogRefresh] = useState(0);
 
@@ -75,14 +77,19 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
   };
 
   const launchWithSavedName = (nextMode: LaunchMode) => {
+    // The cards above launch a random game. Do not accidentally reuse a
+    // catalogue puzzle/question that the player selected earlier.
+    setSelectedQuestionKey(null);
+    setSelectedSudokuPuzzle(null);
     if (name.trim()) {
-      void handleLaunch(nextMode);
+      void handleLaunch(nextMode, null, null);
       return;
     }
     openLaunch(nextMode);
   };
 
-  const handleLaunch = async (launchMode: LaunchMode | null = mode, questionKey: string | null = selectedQuestionKey) => {
+  const handleLaunch = async (launchMode: LaunchMode | null = mode, questionKey: string | null = selectedQuestionKey,
+                              sudokuPuzzle = selectedSudokuPuzzle) => {
     if (!name.trim()) {
       setError("Enter your name to continue.");
       return;
@@ -110,7 +117,8 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
               : {
                   type: page.gameType,
                   host: name.trim(),
-                  ...(page.gameType === "QUIZ_ROYALE" ? { gameMode: page.quizCategory } : {})
+                  ...(page.gameType === "QUIZ_ROYALE" ? { gameMode: page.quizCategory } : {}),
+                  ...(page.gameType === "SUDOKU" && sudokuPuzzle ? { gameMode: `SUDOKU_${sudokuPuzzle.size}X${sudokuPuzzle.size}` } : {})
                 }
           )
         }
@@ -121,7 +129,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
       Cookies.set("playerName", name.trim(), { expires: 1, path: "/" });
       sessionStorage.setItem("funfriday-room-admission", room.roomId);
       const autoStart = launchMode === "solo"
-        ? (page.gameType === "QUIZ_ROYALE" ? `?quick=1${questionKey ? `&question=${encodeURIComponent(questionKey)}` : ""}` : "?solo=1")
+        ? (page.gameType === "QUIZ_ROYALE" ? `?quick=1${questionKey ? `&question=${encodeURIComponent(questionKey)}` : ""}` : `?solo=1${sudokuPuzzle ? `&puzzle=${sudokuPuzzle.id}&sudokuMode=SUDOKU_${sudokuPuzzle.size}X${sudokuPuzzle.size}` : ""}`)
         : "";
       router.push(`/room/${room.roomId}${autoStart}`);
     } catch (launchError) {
@@ -136,6 +144,16 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
       return;
     }
     setSelectedQuestionKey(questionKey);
+    openLaunch("solo");
+  };
+
+  const startSelectedSudokuPuzzle = (puzzleId: number, size: 6 | 9) => {
+    const puzzle = { id: puzzleId, size };
+    if (name.trim()) {
+      void handleLaunch("solo", null, puzzle);
+      return;
+    }
+    setSelectedSudokuPuzzle(puzzle);
     openLaunch("solo");
   };
 
@@ -223,6 +241,8 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
             )}
           </section>
         )}
+
+        {page.gameType === "SUDOKU" && <SudokuPuzzleCatalogue onSelect={startSelectedSudokuPuzzle} />}
 
         <article className="mx-auto mt-16 max-w-4xl border-t border-white/10 pt-12 text-center">
           <p className="text-[10px] font-black uppercase tracking-[.28em] text-cyan-300">FunFriday game guide</p>

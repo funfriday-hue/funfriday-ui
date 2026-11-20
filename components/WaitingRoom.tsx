@@ -15,6 +15,8 @@ interface WaitingRoomProps {
   quickQuiz?: boolean;
   soloPlay?: boolean;
   selectedQuestionKey?: string;
+  selectedSudokuPuzzleId?: number;
+  selectedSudokuMode?: string;
 }
 
 const FALLBACK_MODES: Record<string, GameModeOption[]> = {
@@ -50,7 +52,9 @@ export default function WaitingRoom({
   stompClient,
   quickQuiz = false,
   soloPlay = false,
-  selectedQuestionKey
+  selectedQuestionKey,
+  selectedSudokuPuzzleId,
+  selectedSudokuMode
 }: WaitingRoomProps) {
   
   const [selectedModeId, setSelectedModeId] = useState<string>("");
@@ -99,10 +103,14 @@ export default function WaitingRoom({
       setSelectedModeId(String(actualRoom.initialGameMode).toUpperCase());
       return;
     }
+    if (roomType === "SUDOKU" && selectedSudokuMode) {
+      setSelectedModeId(selectedSudokuMode);
+      return;
+    }
     if (modes.length > 0 && !selectedModeId) {
       setSelectedModeId(modes[0].modeId);
     }
-  }, [actualRoom?.initialGameMode, modes, roomType, selectedModeId]);
+  }, [actualRoom?.initialGameMode, modes, roomType, selectedModeId, selectedSudokuMode]);
 
   const handleCopyCode = () => {
     if (!roomId) return;
@@ -141,10 +149,10 @@ export default function WaitingRoom({
           turnSeconds: 60,
           questionCount: 1,
           ...(selectedQuestionKey ? { questionKey: selectedQuestionKey } : {})
-        } : {}
+        } : selectedSudokuPuzzleId ? { puzzleId: selectedSudokuPuzzleId } : {}
       })
     });
-  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId, selectedQuestionKey]);
+  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId, selectedQuestionKey, selectedSudokuPuzzleId]);
 
   const handleKickPlayer = (playerId: string, playerName: string) => {
     if (!amIActuallyHost || !stompClient || !roomId) return;
