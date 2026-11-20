@@ -13,6 +13,13 @@ type LaunchMode = "solo" | "multiplayer" | "join";
 type QuizQuestionProgress = { bestCorrectAnswers: number; answerCount: number; completed: boolean };
 type QuizQuestionSummary = { questionKey: string; questionType: string; prompt: string; progress?: QuizQuestionProgress | null };
 type QuizQuestionCatalog = { questions: QuizQuestionSummary[]; lockedQuestionCount: number; signedIn: boolean };
+type ProgressFilter = "ALL" | "COMPLETED" | "PARTIAL" | "NOT_SOLVED";
+const PROGRESS_FILTERS: { value: ProgressFilter; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "PARTIAL", label: "Partial" },
+  { value: "NOT_SOLVED", label: "Not solved" },
+];
 
 export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) {
   const router = useRouter();
@@ -27,6 +34,8 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
   const [selectedSudokuPuzzle, setSelectedSudokuPuzzle] = useState<{ id: number; size: 6 | 9 } | null>(null);
   const [lockedQuestionCount, setLockedQuestionCount] = useState(0);
   const [catalogRefresh, setCatalogRefresh] = useState(0);
+  const [questionFilter, setQuestionFilter] = useState<ProgressFilter>("ALL");
+  const [quizSignedIn, setQuizSignedIn] = useState(false);
 
   useEffect(() => {
     const syncName = () => {
@@ -52,6 +61,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
         if (cancelled) return;
         setQuestions(catalog.questions);
         setLockedQuestionCount(catalog.lockedQuestionCount);
+        setQuizSignedIn(catalog.signedIn);
         void fetch(`${baseApiUrl}/metrics/category-catalogue-load`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -66,6 +76,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
         if (cancelled) return;
         setQuestions([]);
         setLockedQuestionCount(0);
+        setQuizSignedIn(false);
       })
       .finally(() => { if (!cancelled) setQuestionsLoading(false); });
     return () => { cancelled = true; };
@@ -158,6 +169,16 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
   };
 
   const requestGoogleLogin = () => window.dispatchEvent(new Event("funfriday-request-google-login"));
+  useEffect(() => {
+    if (!quizSignedIn) setQuestionFilter("ALL");
+  }, [quizSignedIn]);
+  const filteredQuestions = questions.filter((question) => {
+    if (questionFilter === "ALL") return true;
+    if (questionFilter === "COMPLETED") return question.progress?.completed === true;
+    if (questionFilter === "PARTIAL") return !!question.progress && !question.progress.completed;
+    return !question.progress;
+  });
+  const showLockedQuestions = questionFilter === "ALL" || questionFilter === "NOT_SOLVED";
 
   return (
     <main className="min-h-screen bg-[#0a0a0b] px-6 pb-20 pt-20 text-white sm:pt-24">
@@ -194,14 +215,14 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
                 <p className="text-[10px] font-black uppercase tracking-[.26em] text-cyan-300">{page.name} catalogue</p>
                 <h2 id="question-catalog-title" className="mt-1 text-2xl font-black uppercase sm:text-3xl">Questions to play</h2>
               </div>
-              {!questionsLoading && <span className="text-xs font-bold text-zinc-400">{questions.length + lockedQuestionCount} active {questions.length + lockedQuestionCount === 1 ? "question" : "questions"}</span>}
+              {!questionsLoading && quizSignedIn && <div className="flex flex-wrap items-center justify-end gap-1.5" aria-label="Filter questions by progress">{PROGRESS_FILTERS.map((option) => <button key={option.value} type="button" onClick={() => setQuestionFilter(option.value)} className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${questionFilter === option.value ? "border-cyan-300 bg-cyan-300/15 text-cyan-200" : "border-white/10 text-zinc-400 hover:border-white/30 hover:text-white"}`}>{option.label}</button>)}</div>}
             </div>
 
             {questionsLoading ? (
               <div className="mt-5 grid gap-3">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-20 animate-pulse rounded-2xl border border-white/5 bg-white/5" />)}</div>
-            ) : questions.length ? (
+            ) : filteredQuestions.length || (showLockedQuestions && lockedQuestionCount > 0) ? (
               <ol className="mt-3 grid gap-2">
-                {questions.map((question, index) => (
+                {filteredQuestions.map((question, index) => (
                   <li key={question.questionKey}>
                     <button type="button" onClick={() => startSelectedQuestion(question.questionKey)} className="flex w-full flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 text-left transition-colors hover:border-cyan-400/40 focus:outline-none focus-visible:border-cyan-300 sm:flex-row sm:items-center">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-400/10 text-xs font-black text-cyan-300">{index + 1}</span>
@@ -219,12 +240,12 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
                     </button>
                   </li>
                 ))}
-                {lockedQuestionCount > 0 && (
+                {showLockedQuestions && lockedQuestionCount > 0 && (
                   <li className="py-2 text-center">
                     <button type="button" onClick={requestGoogleLogin} className="rounded-xl border border-cyan-300/40 bg-cyan-300/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-cyan-200 transition-colors hover:bg-cyan-300/20">Log in to unlock {lockedQuestionCount} more {lockedQuestionCount === 1 ? "question" : "questions"}</button>
                   </li>
                 )}
-                {Array.from({ length: lockedQuestionCount }).map((_, index) => (
+                {showLockedQuestions && Array.from({ length: lockedQuestionCount }).map((_, index) => (
                   <li key={`locked-${index}`} aria-hidden="true">
                     <div className="flex w-full flex-col gap-3 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/60 p-4 text-left sm:flex-row sm:items-center">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-xs font-black text-zinc-600">{questions.length + index + 1}</span>
@@ -237,7 +258,7 @@ export default function CategoryQuizLanding({ page }: { page: QuizPageConfig }) 
                 ))}
               </ol>
             ) : (
-              <p className="mt-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-6 text-sm text-zinc-400">New questions for this category will appear here once they are approved.</p>
+              <p className="mt-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-6 text-sm text-zinc-400">No {questionFilter.toLowerCase().replaceAll("_", " ")} questions yet.</p>
             )}
           </section>
         )}

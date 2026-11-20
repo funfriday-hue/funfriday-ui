@@ -6,29 +6,38 @@ import { useEffect, useState } from "react";
 type PuzzleProgress = { bestProgressPercent: number; completed: boolean };
 type Puzzle = { id: number; size: number; progress?: PuzzleProgress | null };
 type PuzzlePage = { puzzles: Puzzle[]; total: number; page: number; pageSize: number; lockedPuzzleCount: number; signedIn: boolean };
+type ProgressFilter = "ALL" | "COMPLETED" | "PARTIAL" | "NOT_SOLVED";
 
 const PAGE_SIZE = 15;
 const GUEST_VISIBLE_PUZZLES = 5;
+const FILTERS: { value: ProgressFilter; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "PARTIAL", label: "Partial" },
+  { value: "NOT_SOLVED", label: "Not solved" },
+];
 
-function PuzzleColumn({ size, onSelect }: { size: 6 | 9; onSelect: (puzzle: Puzzle) => void }) {
+function PuzzleColumn({ size, filter, refreshKey, onSelect, onSignedInChange }: { size: 6 | 9; filter: ProgressFilter; refreshKey: number; onSelect: (puzzle: Puzzle) => void; onSignedInChange: (signedIn: boolean) => void }) {
   const [catalogue, setCatalogue] = useState<PuzzlePage | null>(null);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => { setPage(0); }, [filter]);
 
   useEffect(() => {
     let cancelled = false;
     const baseApiUrl = window.location.hostname === "localhost" ? "http://localhost:8080/api" : "/api";
     setLoading(true);
-    fetch(`${baseApiUrl}/sudoku-puzzles?size=${size}&page=${page}&pageSize=${PAGE_SIZE}`, { credentials: "include" })
+    fetch(`${baseApiUrl}/sudoku-puzzles?size=${size}&page=${page}&pageSize=${PAGE_SIZE}&progress=${filter}`, { credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load Sudoku puzzles.");
         return response.json() as Promise<PuzzlePage>;
       })
-      .then((value) => { if (!cancelled) setCatalogue(value); })
+      .then((value) => { if (!cancelled) { setCatalogue(value); onSignedInChange(value.signedIn); } })
       .catch(() => { if (!cancelled) setCatalogue(null); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [page, size]);
+  }, [filter, page, refreshKey, size]);
 
   const totalPages = Math.max(1, Math.ceil((catalogue?.total || 0) / PAGE_SIZE));
   return (
@@ -72,5 +81,14 @@ function PuzzleColumn({ size, onSelect }: { size: 6 | 9; onSelect: (puzzle: Puzz
 }
 
 export default function SudokuPuzzleCatalogue({ onSelect }: { onSelect: (puzzleId: number, size: 6 | 9) => void }) {
-  return <section aria-labelledby="sudoku-puzzle-catalogue-title" className="mx-auto mt-8 max-w-5xl"><div className="border-b border-white/10 pb-3"><p className="text-[10px] font-black uppercase tracking-[.26em] text-cyan-300">Sudoku catalogue</p><h2 id="sudoku-puzzle-catalogue-title" className="mt-1 text-2xl font-black uppercase sm:text-3xl">Choose a puzzle</h2><p className="mt-1 text-sm text-zinc-400">Pick a numbered board to play it on your own.</p></div><div className="mt-4 grid gap-4 lg:grid-cols-2"><PuzzleColumn size={6} onSelect={(puzzle) => onSelect(puzzle.id, 6)} /><PuzzleColumn size={9} onSelect={(puzzle) => onSelect(puzzle.id, 9)} /></div></section>;
+  const [filter, setFilter] = useState<ProgressFilter>("ALL");
+  const [signedIn, setSignedIn] = useState(false);
+  const [catalogueRefresh, setCatalogueRefresh] = useState(0);
+  useEffect(() => { if (!signedIn) setFilter("ALL"); }, [signedIn]);
+  useEffect(() => {
+    const refresh = () => setCatalogueRefresh((current) => current + 1);
+    window.addEventListener("funfriday-auth-updated", refresh);
+    return () => window.removeEventListener("funfriday-auth-updated", refresh);
+  }, []);
+  return <section aria-labelledby="sudoku-puzzle-catalogue-title" className="mx-auto mt-8 max-w-5xl"><div className="border-b border-white/10 pb-3"><p className="text-[10px] font-black uppercase tracking-[.26em] text-cyan-300">Sudoku catalogue</p><div className="mt-1 flex flex-wrap items-end justify-between gap-3"><div><h2 id="sudoku-puzzle-catalogue-title" className="text-2xl font-black uppercase sm:text-3xl">Choose a puzzle</h2><p className="mt-1 text-sm text-zinc-400">Pick a numbered board to play it on your own.</p></div>{signedIn && <div className="flex flex-wrap gap-1.5" aria-label="Filter puzzles by progress">{FILTERS.map((option) => <button key={option.value} type="button" onClick={() => setFilter(option.value)} className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition-colors ${filter === option.value ? "border-cyan-300 bg-cyan-300/15 text-cyan-200" : "border-white/10 text-zinc-400 hover:border-white/30 hover:text-white"}`}>{option.label}</button>)}</div>}</div></div><div className="mt-4 grid gap-4 lg:grid-cols-2"><PuzzleColumn size={6} filter={filter} refreshKey={catalogueRefresh} onSignedInChange={setSignedIn} onSelect={(puzzle) => onSelect(puzzle.id, 6)} /><PuzzleColumn size={9} filter={filter} refreshKey={catalogueRefresh} onSignedInChange={setSignedIn} onSelect={(puzzle) => onSelect(puzzle.id, 9)} /></div></section>;
 }
