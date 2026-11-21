@@ -46,6 +46,7 @@ export default function Crossword({
     useState<CrosswordEntry | null>(null);
   const [now, setNow] = useState(Date.now());
   const [serverClockOffset, setServerClockOffset] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(900);
   const players = Array.isArray(publicState?.players) ? publicState.players : [];
   const me = privateState?.self || players.find((player: any) => String(player.id) === String(playerId)) || {};
   const myStatus = me.status || "ACTIVE";
@@ -64,6 +65,13 @@ export default function Crossword({
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const updateViewport = () => setViewportHeight(window.innerHeight);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
   useEffect(() => {
@@ -108,6 +116,41 @@ export default function Crossword({
     });
     return numbers;
   }, [entries]);
+  const visibleBounds = useMemo(() => {
+    let top = height;
+    let bottom = -1;
+    let left = width;
+    let right = -1;
+    playable.forEach((row, rowIndex) =>
+      row.forEach((open, columnIndex) => {
+        if (!open) return;
+        top = Math.min(top, rowIndex);
+        bottom = Math.max(bottom, rowIndex);
+        left = Math.min(left, columnIndex);
+        right = Math.max(right, columnIndex);
+      }),
+    );
+    return bottom < 0
+      ? { top: 0, bottom: Math.max(0, height - 1), left: 0, right: Math.max(0, width - 1) }
+      : { top, bottom, left, right };
+  }, [height, playable, width]);
+  const visibleRows = visibleBounds.bottom - visibleBounds.top + 1;
+  const visibleColumns = visibleBounds.right - visibleBounds.left + 1;
+  const boardWidth = Math.max(
+    240,
+    Math.min(
+      visibleColumns * 52,
+      Math.floor(Math.max(320, viewportHeight - 270) * (visibleColumns / visibleRows)),
+    ),
+  );
+  const playablePositions = useMemo(
+    () =>
+      Array.from({ length: visibleRows * visibleColumns }, (_, index) => ({
+        row: visibleBounds.top + Math.floor(index / visibleColumns),
+        column: visibleBounds.left + (index % visibleColumns),
+      })),
+    [visibleBounds, visibleColumns, visibleRows],
+  );
   const sync = (next: string[][]) => {
     setBoard(next);
     stompClient?.publish({
@@ -238,7 +281,7 @@ export default function Crossword({
 
   return (
     <>
-    <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-y-auto px-4 pb-6 pt-5 text-white lg:flex-row lg:gap-8">
+    <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-y-auto px-4 pb-6 pt-5 text-white xl:flex-row xl:gap-8">
       <section className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -273,17 +316,18 @@ export default function Crossword({
           </div>
         </div>
         <div
-          className="mt-5 inline-grid rounded border-4 border-zinc-600 bg-zinc-600"
-          style={{ gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))` }}
+          className="mt-5 grid max-w-full rounded border-4 border-zinc-600 bg-zinc-600"
+          style={{
+            width: `min(100%, ${boardWidth}px)`,
+            gridTemplateColumns: `repeat(${visibleColumns}, minmax(0, 1fr))`,
+          }}
         >
-          {Array.from({ length: height * width }, (_, i) => {
-            const r = Math.floor(i / width);
-            const c = i % width;
+          {playablePositions.map(({ row: r, column: c }) => {
             const allowed = playable[r]?.[c];
             const isActive = activeCell?.row === r && activeCell?.column === c;
             const number = clueStartNumbers.get(`${r}:${c}`);
             return (
-              <div key={i} className="relative aspect-square min-w-0">
+              <div key={`${r}:${c}`} className="relative aspect-square min-w-0">
                 {number && (
                   <span className="pointer-events-none absolute left-0.5 top-0 z-10 text-[8px] font-black leading-none text-zinc-400">
                     {number}
@@ -321,14 +365,14 @@ export default function Crossword({
                       setDirection("DOWN");
                     }
                   }}
-                  className={`size-full border border-zinc-700 text-center text-base font-black outline-none sm:text-xl ${allowed ? "bg-zinc-950 text-cyan-200 focus:bg-cyan-300/15" : "bg-zinc-800 text-transparent"} ${isActive ? "ring-2 ring-inset ring-fuchsia-300" : ""}`}
+                  className={`size-full border border-zinc-700 text-center text-[clamp(0.75rem,2.3vw,1.25rem)] font-black outline-none ${allowed ? "bg-zinc-950 text-cyan-200 focus:bg-cyan-300/15" : "bg-zinc-800 text-transparent"} ${isActive ? "ring-2 ring-inset ring-fuchsia-300" : ""}`}
                 />
               </div>
             );
           })}
         </div>
       </section>
-      <aside className="mt-8 w-full rounded-2xl border border-white/10 bg-zinc-950/70 p-5 lg:mt-0 lg:max-w-md">
+      <aside className="mt-8 w-full rounded-2xl border border-white/10 bg-zinc-950/70 p-5 xl:mt-0 xl:max-w-md">
         <h2 className="text-sm font-black uppercase tracking-widest text-fuchsia-300">
           Clues
         </h2>
@@ -396,17 +440,18 @@ export default function Crossword({
             <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.9fr)_minmax(260px,1.1fr)]">
               <div className="flex justify-center xl:justify-start">
                 <div
-                  className="grid w-full max-w-md rounded border-4 border-zinc-600 bg-zinc-600"
-                  style={{ gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))` }}
+                  className="grid max-w-full rounded border-4 border-zinc-600 bg-zinc-600"
+                  style={{
+                    width: `min(100%, ${visibleColumns * 42}px)`,
+                    gridTemplateColumns: `repeat(${visibleColumns}, minmax(0, 1fr))`,
+                  }}
                 >
-                  {Array.from({ length: height * width }, (_, index) => {
-                    const row = Math.floor(index / width);
-                    const column = index % width;
+                  {playablePositions.map(({ row, column }) => {
                     const allowed = playable[row]?.[column];
                     const highlighted = isHighlightedSolutionCell(row, column);
                     return (
                       <div
-                        key={index}
+                        key={`${row}:${column}`}
                         className={`flex aspect-square min-w-0 items-center justify-center border border-zinc-700 text-sm font-black transition-colors sm:text-base ${allowed ? "bg-zinc-950 text-emerald-400" : "bg-zinc-800 text-transparent"} ${highlighted ? "bg-amber-300/25 text-amber-200 ring-1 ring-inset ring-amber-300" : ""}`}
                       >
                         {allowed ? solution[row]?.[column] : ""}
