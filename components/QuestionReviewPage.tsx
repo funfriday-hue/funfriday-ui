@@ -298,6 +298,34 @@ export default function QuestionReviewPage({ mode }: { mode: Mode }) {
     }
   };
 
+  const deleteActiveQuestion = async (question: Question) => {
+    if (
+      !window.confirm(
+        `Permanently delete this question? This also removes every player's saved progress for it.\n\n${question.prompt}`,
+      )
+    )
+      return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch(
+        `${apiBase()}/admin/questions/${question.id}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(body.message || "Unable to delete question.");
+      setMessage("Question deleted.");
+      await loadQuestions();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to delete question.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = () => {
     sessionStorage.removeItem(storageKey);
     setToken("");
@@ -505,6 +533,15 @@ export default function QuestionReviewPage({ mode }: { mode: Mode }) {
                           className="rounded-xl bg-cyan-400 px-4 py-3 text-xs font-black uppercase tracking-widest text-black disabled:opacity-50"
                         >
                           Save
+                        </button>
+                      )}
+                      {!isDraftMode && (
+                        <button
+                          onClick={() => void deleteActiveQuestion(question)}
+                          disabled={loading}
+                          className="rounded-xl border border-rose-400/40 px-4 py-3 text-xs font-black uppercase tracking-widest text-rose-300 disabled:opacity-50"
+                        >
+                          Delete
                         </button>
                       )}
                       {isDraftMode && (

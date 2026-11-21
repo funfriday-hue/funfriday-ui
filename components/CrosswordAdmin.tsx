@@ -19,7 +19,7 @@ export default function CrosswordAdmin({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<number | null>(null);
   useEffect(
-    () => setToken(localStorage.getItem("funfriday-admin-token") || ""),
+    () => setToken(sessionStorage.getItem("funfriday-admin-token") || ""),
     [],
   );
   const base =
@@ -82,6 +82,29 @@ export default function CrosswordAdmin({
     if (!r.ok) setError(await r.text());
     else void load();
   };
+  const removePublishedPuzzle = async (d: Draft) => {
+    if (
+      !window.confirm(
+        `Permanently delete “${d.title}”? This also removes all player progress for this crossword.`,
+      )
+    )
+      return;
+    setBusy(d.id);
+    setError("");
+    try {
+      const r = await fetch(`${base}/admin/crossword/puzzles/${d.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.message || "Unable to delete crossword.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to delete crossword.");
+    } finally {
+      setBusy(null);
+    }
+  };
   return (
     <main className="min-h-screen bg-[#0a0a0b] px-6 pb-20 pt-28 text-white">
       <div className="mx-auto max-w-5xl">
@@ -124,11 +147,21 @@ export default function CrosswordAdmin({
               </p>
               <div className="mt-4 flex gap-3">
                 <button
+                  disabled={busy === d.id}
                   onClick={() => void edit(d)}
                   className="rounded-xl border border-cyan-300/40 px-4 py-2 text-xs font-black uppercase text-cyan-200"
                 >
                   Edit title
                 </button>
+                {review && (
+                  <button
+                    disabled={busy === d.id}
+                    onClick={() => void removePublishedPuzzle(d)}
+                    className="rounded-xl border border-rose-400/40 px-4 py-2 text-xs font-black uppercase text-rose-300 disabled:opacity-50"
+                  >
+                    {busy === d.id ? "Deleting…" : "Delete"}
+                  </button>
+                )}
                 {!review && (
                   <>
                     <button
