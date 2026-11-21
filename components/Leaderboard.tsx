@@ -6,12 +6,35 @@ import { motion } from "framer-motion";
 type LeaderboardPlayer = {
   id?: string;
   name?: string;
+  status?: string;
   score?: number;
-  stats?: { timeElapsedSeconds?: number; tries?: number; totalResponseTimeMillis?: number; strikes?: number };
+  stats?: {
+    timeElapsedSeconds?: number;
+    tries?: number;
+    totalResponseTimeMillis?: number;
+    strikes?: number;
+    cluesSolved?: number;
+    totalClues?: number;
+    completionTimeMillis?: number;
+  };
 };
 
 export default function Leaderboard({ scoreBoard, localPlayerName, gameType, activePlayerId }: { scoreBoard: LeaderboardPlayer[]; localPlayerName?: string | null; gameType: string; activePlayerId?: string }) {
   const players = Array.isArray(scoreBoard) ? [...scoreBoard] : [];
+  if (gameType === "CROSSWORD") {
+    players.sort((first, second) => {
+      const firstCompleted = first.status === "COMPLETED";
+      const secondCompleted = second.status === "COMPLETED";
+      if (firstCompleted !== secondCompleted) return firstCompleted ? -1 : 1;
+      const firstSolved = first.stats?.cluesSolved ?? first.score ?? 0;
+      const secondSolved = second.stats?.cluesSolved ?? second.score ?? 0;
+      const firstTime = first.stats?.completionTimeMillis ?? (first.stats?.timeElapsedSeconds ?? Infinity) * 1000;
+      const secondTime = second.stats?.completionTimeMillis ?? (second.stats?.timeElapsedSeconds ?? Infinity) * 1000;
+      if (firstCompleted && secondCompleted && firstTime !== secondTime) return firstTime - secondTime;
+      if (firstSolved !== secondSolved) return secondSolved - firstSolved;
+      return firstTime - secondTime;
+    });
+  }
 
   const formatTime = (s: number) => {
     if (!s) return "0s";
@@ -63,6 +86,12 @@ export default function Leaderboard({ scoreBoard, localPlayerName, gameType, act
                   <div className="flex gap-2">
                     <span className="text-xs font-black text-emerald-500">{p.score || 0} Points</span>
                     <span className="text-xs font-black text-zinc-400">{p.stats?.strikes || 0} Strikes</span>
+                  </div>
+                ) : gameType === "CROSSWORD" ? (
+                  <div className="flex gap-2">
+                    <span className="text-xs font-black text-emerald-500">
+                      {p.stats?.cluesSolved ?? p.score ?? 0}/{p.stats?.totalClues ?? "?"} Clues
+                    </span>
                   </div>
                 ) : (
                   <div className="flex gap-2">

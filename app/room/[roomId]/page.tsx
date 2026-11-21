@@ -10,6 +10,7 @@ import Wordle from "@/components/games/Wordle";
 import Sudoku from "@/components/games/Sudoku";
 import Dobble from "@/components/games/Dobble";
 import QuizRoyale from "@/components/games/QuizRoyale";
+import Crossword from "@/components/games/Crossword";
 import Leaderboard from "@/components/Leaderboard";
 import WaitingRoom from "@/components/WaitingRoom";
 import { getSortedPlayers } from "@/utils/gameRules";
@@ -27,6 +28,7 @@ export default function RoomPage() {
   const selectedQuestionKey = searchParams.get("question") ?? undefined;
   const selectedSudokuPuzzleId = Number(searchParams.get("puzzle")) || undefined;
   const selectedSudokuMode = searchParams.get("sudokuMode") ?? undefined;
+  const selectedCrosswordPuzzleId = Number(searchParams.get("crossword")) || undefined;
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [admissionChecked, setAdmissionChecked] = useState(false);
@@ -174,7 +176,7 @@ export default function RoomPage() {
   // The global navigation is fixed. These two games place their timer/progress
   // controls at the top of their own canvas, so reserve the nav's 64px height.
   const needsGameNavClearance = currentStatus !== "WAITING"
-    && (resolvedGameType === "SUDOKU" || resolvedGameType === "WORDLE");
+    && (resolvedGameType === "SUDOKU" || resolvedGameType === "WORDLE" || resolvedGameType === "CROSSWORD");
   const roomPlayers = cleanPublic?.players || [];
   const isRoomHost = cleanPublic?.host?.id === playerId
     || cleanPublic?.hostId === playerId
@@ -201,6 +203,7 @@ return (
             selectedQuestionKey={selectedQuestionKey}
             selectedSudokuPuzzleId={selectedSudokuPuzzleId}
             selectedSudokuMode={selectedSudokuMode}
+            selectedCrosswordPuzzleId={selectedCrosswordPuzzleId}
           />
         ) : resolvedGameType === "SUDOKU" ? (
           <Sudoku 
@@ -223,6 +226,8 @@ return (
             synchronizedPlayers={synchronizedPlayers}
             moveError={wordError}
           />
+        ) : resolvedGameType === "CROSSWORD" ? (
+          <Crossword roomId={roomId as string} playerId={playerId!} stompClient={stompClientRef.current!} publicState={cleanPublic} privateState={privateData?.body ? JSON.parse(privateData.body) : privateData} isHost={isRoomHost} />
         ) : resolvedGameType === "QUIZ_ROYALE" ? (
           <QuizRoyale roomId={roomId as string} playerId={playerId!} playerName={playerName} stompClient={stompClientRef.current!} publicState={cleanPublic} synchronizedPlayers={synchronizedPlayers} />
         ) : (

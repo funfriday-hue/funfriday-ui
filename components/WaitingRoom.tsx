@@ -17,6 +17,7 @@ interface WaitingRoomProps {
   selectedQuestionKey?: string;
   selectedSudokuPuzzleId?: number;
   selectedSudokuMode?: string;
+  selectedCrosswordPuzzleId?: number;
 }
 
 const FALLBACK_MODES: Record<string, GameModeOption[]> = {
@@ -43,7 +44,8 @@ const FALLBACK_MODES: Record<string, GameModeOption[]> = {
     { modeId: "WWE", displayName: "WWE" },
     { modeId: "INDIA", displayName: "India" },
     { modeId: "CHESS", displayName: "Chess" }
-  ]
+  ],
+  CROSSWORD: [{ modeId: "CROSSWORD", displayName: "Crossword" }]
 };
 
 export default function WaitingRoom({
@@ -55,6 +57,7 @@ export default function WaitingRoom({
   selectedQuestionKey,
   selectedSudokuPuzzleId,
   selectedSudokuMode
+  ,selectedCrosswordPuzzleId
 }: WaitingRoomProps) {
   
   const [selectedModeId, setSelectedModeId] = useState<string>("");
@@ -126,7 +129,7 @@ export default function WaitingRoom({
       destination: `/app/game/${roomId}/start`,
       body: JSON.stringify({
         gameMode: selectedModeId,
-        genericProperties: roomType === "QUIZ_ROYALE" ? { strikeLimit, playMode: quizPlayMode, turnSeconds, questionCount } : {}
+        genericProperties: roomType === "QUIZ_ROYALE" ? { strikeLimit, playMode: quizPlayMode, turnSeconds, questionCount } : roomType === "CROSSWORD" && selectedCrosswordPuzzleId ? { puzzleId: selectedCrosswordPuzzleId } : {}
       })
     });
   };
@@ -149,10 +152,10 @@ export default function WaitingRoom({
           turnSeconds: 60,
           questionCount: 1,
           ...(selectedQuestionKey ? { questionKey: selectedQuestionKey } : {})
-        } : selectedSudokuPuzzleId ? { puzzleId: selectedSudokuPuzzleId } : {}
+        } : selectedSudokuPuzzleId ? { puzzleId: selectedSudokuPuzzleId } : selectedCrosswordPuzzleId ? { puzzleId: selectedCrosswordPuzzleId } : {}
       })
     });
-  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId, selectedQuestionKey, selectedSudokuPuzzleId]);
+  }, [quickQuiz, soloPlay, roomType, stompClient, roomId, selectedModeId, selectedQuestionKey, selectedSudokuPuzzleId, selectedCrosswordPuzzleId]);
 
   const handleKickPlayer = (playerId: string, playerName: string) => {
     if (!amIActuallyHost || !stompClient || !roomId) return;
