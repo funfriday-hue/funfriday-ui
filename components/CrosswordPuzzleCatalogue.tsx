@@ -54,11 +54,13 @@ export default function CrosswordPuzzleCatalogue({
   const visible = signedIn ? filtered : filtered.slice(0, 5);
   const locked = !signedIn ? Math.max(0, filtered.length - 5) : 0;
   const categoryNumbers = new Map<number, number>();
+  const catalogueNumbers = new Map<number, number>();
   const categoryCounts = new Map<string, number>();
-  data.puzzles.forEach((puzzle) => {
+  data.puzzles.forEach((puzzle, index) => {
     const nextNumber = (categoryCounts.get(puzzle.category) ?? 0) + 1;
     categoryCounts.set(puzzle.category, nextNumber);
     categoryNumbers.set(puzzle.id, nextNumber);
+    catalogueNumbers.set(puzzle.id, index + 1);
   });
   return (
     <section className="mx-auto mt-8 max-w-5xl">
@@ -97,6 +99,7 @@ export default function CrosswordPuzzleCatalogue({
           visible.map((p) => {
             const progress = data.progress[String(p.id)];
             const categoryNumber = categoryNumbers.get(p.id) ?? 1;
+            const catalogueNumber = catalogueNumbers.get(p.id) ?? 1;
             return (
               <button
                 key={p.id}
@@ -104,7 +107,7 @@ export default function CrosswordPuzzleCatalogue({
                 className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 text-left transition-colors hover:border-cyan-400/40"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/10 text-xs font-black text-cyan-300">
-                  {categoryNumber}
+                  {catalogueNumber}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="text-[10px] font-black uppercase tracking-[.16em] text-fuchsia-300">
